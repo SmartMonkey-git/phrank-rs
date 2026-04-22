@@ -48,5 +48,8 @@
 
 pub mod error;
 pub mod ontology;
+pub use ontology::*;
 pub mod phrank;
+pub use phrank::Phrank;
 pub mod traits;
+pub(crate) mod types;

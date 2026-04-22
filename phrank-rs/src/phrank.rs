@@ -1,5 +1,6 @@
 use crate::error::PhrankError;
 use crate::traits::OntologyTraversal;
+use crate::types::PatientPhenotypePairRef;
 use bimap::BiMap;
 use itertools::Itertools;
 use rayon::iter::IntoParallelRefIterator;
@@ -14,6 +15,15 @@ use std::collections::{HashMap, HashSet};
 /// to weight the rarity and significance of shared phenotypes.
 pub struct Phrank<O> {
     ontology: O,
+}
+
+impl<O> Phrank<O>
+where
+    O: OntologyTraversal,
+{
+    pub fn new(ontology: O) -> Self {
+        Self { ontology }
+    }
 }
 
 impl<O> Phrank<O>
@@ -44,7 +54,7 @@ where
         for (id, features) in cohort.iter() {
             for feature_id in features.iter() {
                 direct_associations
-                    .entry(&feature_id)
+                    .entry(feature_id)
                     .or_default()
                     .insert(id);
             }
@@ -67,7 +77,7 @@ where
         Ok(phenotype_patient_association
             .into_iter()
             .map(|(pt_id, patients)| {
-                let information_content = -1.0 * (patients.len() as f32 / n_patients).log2();
+                let information_content = -(patients.len() as f32 / n_patients).log2();
                 (pt_id, information_content)
             })
             .collect())
@@ -103,16 +113,13 @@ where
         let product: Vec<_> = cohort
             .iter()
             .cartesian_product(cohort.iter())
-            .filter(|(a, b)| !(*a == *b))
+            .filter(|(a, b)| *a != *b)
             .collect();
 
         let results: Vec<(usize, usize, f32)> = product
             .par_iter()
             .map(
-                |((id_1, features_1), (id_2, features_2)): &(
-                    (&String, &Vec<String>),
-                    (&String, &Vec<String>),
-                )| {
+                |((id_1, features_1), (id_2, features_2)): PatientPhenotypePairRef| {
                     let mut similarity = 0.0;
                     for key in
                         HashSet::<&String>::from_iter(features_1.iter().chain(features_2.iter()))

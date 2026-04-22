@@ -1,17 +1,6 @@
-[package]
-authors = ["Rouven Reuter"]
-description = "A template for rust projects build by the robinson group"
-edition = "2024"
-homepage = "https://robinsongroup.github.io/"
-license = "MIT"
-name = "phrank"
-version = "0.1.0"
-
-[dependencies]
-bimap = "0.6.3"
-itertools = "0.14.0"
-rayon = "1.10.0"
-sprs = "0.11.4"
-moka = { version = "0.12.14", features = ["sync"] }
-thiserror = "2.0.18"
-ontolius = "0.7.2"
+[workspace]
+members = [
+    "phrank-py",
+    "phrank-rs",
+]
+resolver = "3"
