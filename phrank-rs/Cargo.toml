@@ -1,8 +1,10 @@
 [package]
-authors = ["Rouven Reuter"]
-description = "A template for rust projects build by the robinson group"
+authors = ["Rouven Reuter <Rouven.Reuter@proton.me>"]
+description = "An ontology base similarity algorithm for patient wise similarity. Has been originally published by Karthik A. Jagadeesh 2018"
 edition = "2024"
 homepage = "https://robinsongroup.github.io/"
+repository = "https://github.com/SmartMonkey-git/phrank-rs"
+keywords = ["ontology", "hpo", "similarity"]
 license = "MIT"
 name = "phrank"
 version = "0.1.0"
