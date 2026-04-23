@@ -48,7 +48,7 @@
 
 pub mod error;
 pub mod ontology;
-pub use ontology::*;
+pub use ontology::ontolius_adapter::OntologyAdapter;
 pub mod phrank;
 pub use phrank::Phrank;
 pub mod traits;
