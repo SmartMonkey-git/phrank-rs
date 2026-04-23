@@ -3,7 +3,6 @@ name = "phrank-py"
 version = "0.2.1"
 edition = "2024"
 
-
 [lib]
 name = "phrank_py"
 
