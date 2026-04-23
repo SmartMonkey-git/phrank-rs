@@ -18,10 +18,13 @@ pub struct OntologyAdapter<Ontology> {
 }
 
 impl<Ontology> OntologyAdapter<Ontology> {
-    pub fn new(ontology: Ontology) -> Self {
+    pub fn new(ontology: Ontology, cache_size: u64) -> Self
+    where
+        OntologyAdapter<Ontology>: OntologyTraversal,
+    {
         Self {
             ontology,
-            query_cache: Cache::new(250),
+            query_cache: Cache::new(cache_size),
         }
     }
 }

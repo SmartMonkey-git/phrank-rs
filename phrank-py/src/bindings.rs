@@ -28,14 +28,14 @@ impl PyPhrank {
     /// Returns:
     ///     PhrankEngine: A ready-to-use similarity engine.
     #[new]
-    pub fn new(ontology_path: &str) -> PyResult<Self> {
+    pub fn new(ontology_path: &str, cache_size: u64) -> PyResult<Self> {
         let loader = OntologyLoaderBuilder::new().obographs_parser().build();
 
         let ontology_file = File::open(ontology_path)?;
         let ontology = loader
             .load_from_read(ontology_file)
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        let adapter = OntologyAdapter::new(ontology);
+        let adapter = OntologyAdapter::new(ontology, cache_size);
 
         let inner = Phrank::new(adapter);
 
