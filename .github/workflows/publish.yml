@@ -120,7 +120,7 @@ jobs:
       - name: Set specific version
         run: |
           pip install toml-cli
-          toml set --toml-path .phrank-py/pyproject.toml project.version "${{ github.event.inputs.version }}"
+          toml set --toml-path ./phrank-py/pyproject.toml project.version "${{ github.event.inputs.version }}"
 
 
       - name: Build wheels
