@@ -95,6 +95,28 @@ jobs:
         with:
           python-version: '3.10'
 
+      # Bump version
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install cargo-edit
+        run: cargo install cargo-edit
+
+      - name: Bump Version in Cargo.toml
+        id: set_version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          echo "Setting version to: $VERSION"
+
+          # Bump the version using cargo-edit
+          cargo set-version $VERSION
+
+          # Output for later steps
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
