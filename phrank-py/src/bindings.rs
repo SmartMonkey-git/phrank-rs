@@ -28,7 +28,7 @@ impl PyPhrank {
     /// Returns:
     ///     PhrankEngine: A ready-to-use similarity engine.
     #[new]
-    pub fn new(ontology_path: &str, cache_size: u64) -> PyResult<Self> {
+    pub fn new(ontology_path: &str, cache_size: u64, normalize: bool) -> PyResult<Self> {
         let loader = OntologyLoaderBuilder::new().obographs_parser().build();
 
         let ontology_file = File::open(ontology_path)?;
@@ -37,7 +37,7 @@ impl PyPhrank {
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         let adapter = CachedOntologyAdapter::new(ontology, cache_size);
 
-        let inner = Phrank::new(adapter);
+        let inner = Phrank::new(adapter, normalize);
 
         Ok(Self { inner })
     }

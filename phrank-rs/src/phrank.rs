@@ -15,14 +15,18 @@ use std::collections::{HashMap, HashSet};
 /// to weight the rarity and significance of shared phenotypes.
 pub struct Phrank<O> {
     ontology: O,
+    normalize: bool,
 }
 
 impl<O> Phrank<O>
 where
     O: OntologyTraversal,
 {
-    pub fn new(ontology: O) -> Self {
-        Self { ontology }
+    pub fn new(ontology: O, normalize: bool) -> Self {
+        Self {
+            ontology,
+            normalize,
+        }
     }
 }
 
@@ -46,8 +50,8 @@ where
     fn calculate_ic(
         &self,
         cohort: &HashMap<String, Vec<String>>,
-    ) -> Result<HashMap<String, f32>, PhrankError> {
-        let cohort_size = cohort.len() as f32;
+    ) -> Result<HashMap<String, f64>, PhrankError> {
+        let cohort_size = cohort.len() as f64;
 
         let mut direct_associations: HashMap<&String, HashSet<&str>> = HashMap::new();
 
@@ -77,7 +81,7 @@ where
         Ok(phenotype_patient_association
             .into_iter()
             .map(|(pt_id, patients)| {
-                let information_content = -(patients.len() as f32 / cohort_size).log2();
+                let information_content = -(patients.len() as f64 / cohort_size).log2();
                 (pt_id, information_content)
             })
             .collect())
@@ -100,14 +104,14 @@ where
     pub fn calculate_similarity(
         &self,
         cohort: &HashMap<String, Vec<String>>,
-    ) -> Result<(TriMat<f32>, BiMap<usize, String>), PhrankError> {
+    ) -> Result<(TriMat<f64>, BiMap<usize, String>), PhrankError> {
         if cohort.len() <= 2 {
             return Err(PhrankError::CohortTooSmall(cohort.len()));
         }
 
         let ic = self.calculate_ic(cohort)?;
 
-        let mut matrix = TriMat::new((cohort.len(), cohort.len()));
+        let mut matrix = TriMat::<f64>::new((cohort.len(), cohort.len()));
         let pp_to_matrix_id: BiMap<usize, String> = cohort
             .iter()
             .enumerate()
@@ -116,11 +120,11 @@ where
 
         let product: Vec<_> = cohort.iter().cartesian_product(cohort.iter()).collect();
 
-        let results: Vec<(usize, usize, f32)> = product
+        let results: Vec<(usize, usize, f64)> = product
             .par_iter()
             .map(
                 |((id_1, features_1), (id_2, features_2)): PatientPhenotypePairRef| {
-                    let mut similarity = 0.0;
+                    let mut similarity = 0.0_f64;
 
                     for key in HashSet::<&String>::from_iter(features_1.iter())
                         .intersection(&HashSet::<&String>::from_iter(features_2.iter()))
@@ -135,8 +139,17 @@ where
             )
             .collect();
 
+        let (normalizer, min) = match self.normalize {
+            true => {
+                let min = results.iter().min_by(|a, b| a.2.total_cmp(&b.2)).unwrap().2;
+                let max = results.iter().max_by(|a, b| a.2.total_cmp(&b.2)).unwrap().2;
+                (max - min, min)
+            }
+            false => (1.0, 0.0),
+        };
+
         for (row, col, sim) in results {
-            matrix.add_triplet(row, col, sim);
+            matrix.add_triplet(row, col, (sim - min) / normalizer);
         }
 
         Ok((matrix, pp_to_matrix_id))
@@ -200,7 +213,10 @@ mod tests {
         ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
 
         let ontology = MockOntology { ancestor_map };
-        Phrank { ontology }
+        Phrank {
+            ontology,
+            normalize: false,
+        }
     }
 
     #[test]
@@ -214,9 +230,9 @@ mod tests {
             .calculate_ic(&cohort)
             .expect("Failed to calculate IC");
 
-        assert_eq!(ic_map.get("HP:000").copied().unwrap_or(f32::NAN), 0.0);
-        assert_eq!(ic_map.get("HP:001").copied().unwrap_or(f32::NAN), 1.0);
-        assert_eq!(ic_map.get("HP:002").copied().unwrap_or(f32::NAN), 1.0);
+        assert_eq!(ic_map.get("HP:000").copied().unwrap_or(f64::NAN), 0.0);
+        assert_eq!(ic_map.get("HP:001").copied().unwrap_or(f64::NAN), 1.0);
+        assert_eq!(ic_map.get("HP:002").copied().unwrap_or(f64::NAN), 1.0);
     }
 
     #[test]
@@ -230,8 +246,8 @@ mod tests {
             .calculate_ic(&cohort)
             .expect("Failed to calculate IC");
 
-        assert_eq!(ic_map.get("HP:000").copied().unwrap_or(f32::NAN), 0.0);
-        assert_eq!(ic_map.get("HP:001").copied().unwrap_or(f32::NAN), 0.0);
+        assert_eq!(ic_map.get("HP:000").copied().unwrap_or(f64::NAN), 0.0);
+        assert_eq!(ic_map.get("HP:001").copied().unwrap_or(f64::NAN), 0.0);
     }
 
     #[test]
@@ -253,7 +269,7 @@ mod tests {
         let id_a = *bimap.get_by_right("P1").unwrap();
         let id_b = *bimap.get_by_right("P2").unwrap();
 
-        let csr_matrix: sprs::CsMat<f32> = matrix.to_csr();
+        let csr_matrix: sprs::CsMat<f64> = matrix.to_csr();
 
         let sim_score = csr_matrix
             .get(id_a, id_b)
@@ -282,7 +298,7 @@ mod tests {
         let p_id_2 = *bimap.get_by_right("P2").unwrap();
         let p_id_3 = *bimap.get_by_right("P3").unwrap();
 
-        let csr_matrix: sprs::CsMat<f32> = matrix.to_csr();
+        let csr_matrix: sprs::CsMat<f64> = matrix.to_csr();
         println!("{:?}", csr_matrix);
 
         let sim_score_p1_p2 = csr_matrix
