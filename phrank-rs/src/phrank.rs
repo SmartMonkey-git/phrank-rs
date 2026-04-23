@@ -150,6 +150,7 @@ mod tests {
     use sprs::CsMat;
     use std::collections::HashMap;
 
+    #[allow(unused)]
     fn print_patient_grid(trimat: &TriMat<f32>, patient_map: &BiMap<usize, String>) {
         let (rows, cols) = trimat.shape();
         let csr: CsMat<f32> = trimat.to_csr();
@@ -288,9 +289,7 @@ mod tests {
             .get(p_id_1, p_id_2)
             .copied()
             .expect("Failed to get sim score");
-        println!("{:?}", bimap);
 
-        print_patient_grid(&matrix, &bimap);
         assert_relative_eq!(sim_score_p1_p2, 0.5849625, epsilon = 1e-5);
 
         let sim_score_p3_p3 = csr_matrix
@@ -310,7 +309,7 @@ mod tests {
         cohort.insert("P2".to_string(), vec!["HP:002".to_string()]);
         cohort.insert("P3".to_string(), vec!["HP:003".to_string()]);
 
-        let (matrix, bimap) = phrank
+        let (matrix, _) = phrank
             .calculate_similarity(&cohort)
             .expect("Failed to calculate similarity");
 
