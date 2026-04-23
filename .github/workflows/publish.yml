@@ -105,6 +105,7 @@ jobs:
         run: cargo install cargo-edit
 
       - name: Bump Version in Cargo.toml
+        shell: bash
         id: set_version
         run: |
           VERSION="${{ github.event.inputs.version }}"
