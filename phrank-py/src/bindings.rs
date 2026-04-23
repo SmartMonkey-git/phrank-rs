@@ -2,7 +2,7 @@ use numpy::ToPyArray;
 use ontolius::io::OntologyLoaderBuilder;
 use ontolius::ontology::csr::FullCsrOntology;
 use phrank::Phrank;
-use phrank::ontology::ontolius_adapter::OntologyAdapter;
+use phrank::ontology::ontolius_adapter::CachedOntologyAdapter;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::collections::HashMap;
@@ -15,7 +15,7 @@ use std::fs::File;
 /// Rust's parallelization and zero-copy memory transfers to SciPy.
 #[pyclass(name = "PyPhrank")]
 pub struct PyPhrank {
-    inner: Phrank<OntologyAdapter<FullCsrOntology>>,
+    inner: Phrank<CachedOntologyAdapter<FullCsrOntology>>,
 }
 
 #[pymethods]
@@ -35,7 +35,7 @@ impl PyPhrank {
         let ontology = loader
             .load_from_read(ontology_file)
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        let adapter = OntologyAdapter::new(ontology, cache_size);
+        let adapter = CachedOntologyAdapter::new(ontology, cache_size);
 
         let inner = Phrank::new(adapter);
 

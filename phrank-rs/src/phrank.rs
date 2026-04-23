@@ -309,7 +309,7 @@ mod tests {
         cohort.insert("P2".to_string(), vec!["HP:002".to_string()]);
         cohort.insert("P3".to_string(), vec!["HP:003".to_string()]);
 
-        let (matrix, _) = phrank
+        let (matrix, _bimap) = phrank
             .calculate_similarity(&cohort)
             .expect("Failed to calculate similarity");
 

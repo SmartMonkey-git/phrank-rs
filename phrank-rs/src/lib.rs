@@ -29,26 +29,48 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust,no_run
+//! ```rust
 //! use std::collections::HashMap;
-//! use my_crate::phrank::Phrank;
+//! use phrank::Phrank;
+//! use phrank::error::PhrankError;
+//! use phrank::traits::OntologyTraversal;
 //! // Assuming you have initialized your chosen ontology:
-//! use my_crate::ontology::OntologyAdapter;
-//! let adapter = OntologyAdapter::new(my_ontology)?;
-//! let phrank = Phrank { ontology: adapter };
+//! use phrank::ontology::ontolius_adapter::CachedOntologyAdapter;
 //!
-//! // 1. Define your cohort (Patient ID -> Vec<Phenotype IDs>)
-//! let mut cohort = HashMap::new();
-//! cohort.insert("Patient_1".to_string(), vec!["HP:0001250".to_string()]);
-//! cohort.insert("Patient_2".to_string(), vec!["HP:0001250".to_string(), "HP:0000001".to_string()]);
+//! struct MockOntology {
+//!     ancestor_map: HashMap<String, Vec<String>>,
+//! }
 //!
-//! // 2. Calculate the similarity matrix
-//! let (matrix, id_map) = phrank.calculate_similarity(&cohort)?;
+//! impl OntologyTraversal for MockOntology {
+//!     fn get_ancestor_ids(&self, id: &str) -> Result<Vec<String>, PhrankError> {
+//!         Ok(self.ancestor_map.get(id).cloned().unwrap_or_default())
+//!     }
+//! }
+//!fn main() -> Result<(), PhrankError> {
+//!    let mut ancestor_map = HashMap::new();
+//!    ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
+//!    ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
+//!
+//!    let ontology = MockOntology{ancestor_map};
+//!
+//!    let adapter = CachedOntologyAdapter::new(ontology, 1500);
+//!    let phrank = Phrank::new(adapter);
+//!
+//!    // 1. Define your cohort (Patient ID -> Vec<Phenotype IDs>)
+//!    let mut cohort = HashMap::new();
+//!    cohort.insert("P1".to_string(), vec!["HP:0001250".to_string()]);
+//!    cohort.insert("P2".to_string(), vec!["HP:0001250".to_string(), "HP:0000001".to_string()]);
+//!    cohort.insert("P3".to_string(), vec!["HP:0001250".to_string(), "HP:0000001".to_string()]);
+//!
+//!    // 2. Calculate the similarity matrix
+//!    let (matrix, id_map) = phrank.calculate_similarity(&cohort)?;
+//!    Ok(())
+//! }
 //! ```
 
 pub mod error;
 pub mod ontology;
-pub use ontology::ontolius_adapter::OntologyAdapter;
+pub use ontology::ontolius_adapter::CachedOntologyAdapter;
 pub mod phrank;
 pub use phrank::Phrank;
 pub mod traits;

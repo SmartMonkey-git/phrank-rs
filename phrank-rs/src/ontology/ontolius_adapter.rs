@@ -12,24 +12,44 @@ use std::str::FromStr;
 /// This struct includes an embedded, thread-safe cache to store the results
 /// of expensive ancestor lookups, significantly speeding up repetitive queries
 /// across large patient cohorts.
-pub struct OntologyAdapter<Ontology> {
+pub struct CachedOntologyAdapter<Ontology> {
     ontology: Ontology,
-    query_cache: Cache<String, Vec<String>>,
+    cache: Cache<String, Vec<String>>,
 }
 
-impl<Ontology> OntologyAdapter<Ontology> {
+impl<Ontology> CachedOntologyAdapter<Ontology> {
     pub fn new(ontology: Ontology, cache_size: u64) -> Self
     where
-        OntologyAdapter<Ontology>: OntologyTraversal,
+        Ontology: OntologyTraversal,
     {
         Self {
             ontology,
-            query_cache: Cache::new(cache_size),
+            cache: Cache::new(cache_size),
         }
+    }
+
+    pub fn ontology(&self) -> &Ontology
+    where
+        Ontology: OntologyTraversal,
+    {
+        &self.ontology
     }
 }
 
-impl OntologyTraversal for OntologyAdapter<FullCsrOntology> {
+impl<Ontology> OntologyTraversal for CachedOntologyAdapter<Ontology>
+where
+    Ontology: OntologyTraversal,
+{
+    fn get_ancestor_ids(&self, child: &str) -> Result<Vec<String>, PhrankError> {
+        if let Some(ancestors) = self.cache.get(child) {
+            return Ok(ancestors);
+        }
+        let ancestors = self.ontology.get_ancestor_ids(child)?;
+        self.cache.insert(child.to_string(), ancestors.clone());
+        Ok(ancestors)
+    }
+}
+impl OntologyTraversal for FullCsrOntology {
     /// Retrieves all ancestor IDs for a given child term ID.
     ///
     /// This method first checks the internal cache. If the ancestors for the requested
@@ -44,22 +64,15 @@ impl OntologyTraversal for OntologyAdapter<FullCsrOntology> {
     /// A `Result` containing a `Vec` of ancestor IDs as `String`s, or a `PhrankError`
     /// if the `child_id` cannot be parsed into a valid `TermId`.
     fn get_ancestor_ids(&self, child_id: &str) -> Result<Vec<String>, PhrankError> {
-        if let Some(ancestors) = self.query_cache.get(child_id) {
-            return Ok(ancestors);
-        }
-
         let term_id = TermId::from_str(child_id);
 
         match term_id {
             Ok(term) => {
                 let ancestors: Vec<String> = self
-                    .ontology
                     .iter_ancestor_ids(&term)
                     .map(|t_id| t_id.to_string())
                     .collect();
 
-                self.query_cache
-                    .insert(child_id.to_string(), ancestors.clone());
                 Ok(ancestors)
             }
             Err(_) => Err(PhrankError::TermIdNotFound(child_id.to_string())),
