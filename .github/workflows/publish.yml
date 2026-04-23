@@ -117,6 +117,10 @@ jobs:
           # Output for later steps
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Set specific version
+        run: |
+          pip install bump-my-version
+          bump-my-version set-version ${{ github.event.inputs.version }}
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
