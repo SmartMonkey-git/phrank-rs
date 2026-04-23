@@ -34,7 +34,7 @@ from phenopackets import Phenopacket
 from phrank_py import PyPhrank
 
 # 1. Initialize the Phrank Engine with your ontology JSON
-phrank = PyPhrank("./hp.json")
+phrank = PyPhrank("./hp.json", cache_size=1500)
 
 # 2. Load your patient cohort (e.g., from a directory of Phenopackets)
 pp_dir = Path(os.path.expanduser("./phenopackets"))
