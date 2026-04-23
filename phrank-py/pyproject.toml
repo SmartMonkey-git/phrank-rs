@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "phrank-py"
-version = "0.1.0"
+version = "0.2.2"
 description = "An ontology base similarity algorithm for patient wise similarity. Has been originally published by Karthik A. Jagadeesh 2018. It uses Rust under the hood."
 readme = "README.md"
 requires-python = ">=3.8"
