@@ -119,8 +119,9 @@ jobs:
 
       - name: Set specific version
         run: |
-          pip install bump-my-version
-          bump-my-version set-version ${{ github.event.inputs.version }}
+          pip install pip install toml-cli
+          toml set --toml-path .phrank-py/pyproject.toml project.version "${{ github.event.inputs.version }}"
+
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
