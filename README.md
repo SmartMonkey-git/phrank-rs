@@ -12,3 +12,6 @@ The algorithm is available in Rust and Python. Check these distribution platform
 - [Pypi](https://pypi.org/project/phrank-py/)
 - [Crate.io](https://crates.io/crates/phrank/0.2.1)
 
+# Credit
+
+Original Publication by Karthik A. Jagadeesh et al. [here](https://www.nature.com/articles/s41436-018-0072-y)

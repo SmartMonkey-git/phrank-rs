@@ -34,7 +34,7 @@ from phenopackets import Phenopacket
 from phrank_py import PyPhrank
 
 # 1. Initialize the Phrank Engine with your ontology JSON
-phrank = PyPhrank("./hp.json", cache_size=1500)
+phrank = PyPhrank("./hp.json", cache_size=1500, normalize=false)
 
 # 2. Load your patient cohort (e.g., from a directory of Phenopackets)
 pp_dir = Path(os.path.expanduser("./phenopackets"))
@@ -55,3 +55,7 @@ matrix, mapping = phrank.calculate_similarity(id_by_feature_id)
 
 print(f"Generated sparse matrix of shape: {matrix.shape}")
 ```
+
+# Credit
+
+Original Publication by Karthik A. Jagadeesh et al. [here](https://www.nature.com/articles/s41436-018-0072-y)
