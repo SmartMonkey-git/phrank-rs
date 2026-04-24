@@ -6,7 +6,6 @@ use phrank::cohort_entity::CohortEntity;
 use phrank::ontology::ontolius_adapter::CachedOntologyAdapter;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use std::collections::HashMap;
 use std::fs::File;
 
 /// A high-performance, phenotype-driven similarity engine.
@@ -26,6 +25,13 @@ pub struct PyCohortEntity {
     pub id: String,
     #[pyo3(get, set)]
     pub features: Vec<String>,
+}
+#[pymethods]
+impl PyCohortEntity {
+    #[new]
+    pub fn new(id: String, features: Vec<String>) -> Self {
+        Self { id, features }
+    }
 }
 
 #[pymethods]
@@ -69,7 +75,7 @@ impl PyPhrank {
         &self,
         py: Python<'py>, // Inject the Python GIL token
         cohort: &Bound<'py, PyList>,
-    ) -> PyResult<(Bound<'py, PyAny>, HashMap<usize, String>)> {
+    ) -> PyResult<(Bound<'py, PyAny>, Vec<(usize, String)>)> {
         let num_patients = cohort.len();
 
         let cohort: Vec<CohortEntity> = cohort
@@ -102,28 +108,16 @@ impl PyPhrank {
 
         let csr_matrix = coo_matrix.call_method0("tocsr")?;
 
-        let mut id_map = HashMap::new();
-        for (idx, patient_id) in bimap.iter() {
-            id_map.insert(*idx, patient_id.clone());
-        }
+        let id_map: Vec<(usize, String)> = cohort
+            .iter()
+            .enumerate()
+            .map(|(i, entity)| (i, entity.id().to_owned()))
+            .collect();
 
         Ok((csr_matrix, id_map))
     }
 }
 
-/// Calculate the pairwise similarity matrix for a patient cohort.
-///
-/// This method computes the similarity using parallelized Rust operations
-/// and returns a zero-copy SciPy CSR matrix directly to Python memory.
-///
-/// Args:
-///     cohort (dict[str, list[str]]): A dictionary mapping Patient IDs
-///         to a list of phenotype/HPO terms.
-///
-/// Returns:
-///     tuple[scipy.sparse.csr_matrix, dict[int, str]]:
-///         - The N x N similarity matrix.
-///         - A dictionary mapping matrix row/col indices to the original Patient IDs.
 #[pymodule]
 fn phrank_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPhrank>()?;
