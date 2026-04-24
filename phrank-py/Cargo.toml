@@ -7,7 +7,7 @@ edition = "2024"
 name = "phrank_py"
 
 [dependencies]
-phrank = { path = "../phrank-rs" }
+phrank = { path = "../phrank-rs", features = ["python"] }
 ontolius = "0.7.2"
 pyo3 = { version = "0.28.3", features = ["extension-module"] }
 numpy = "0.28.0"

@@ -47,7 +47,8 @@
 //!     }
 //! }
 //!fn main() -> Result<(), PhrankError> {
-//!    let mut ancestor_map = HashMap::new();
+//!    use phrank::cohort_entity::CohortEntity;
+//! let mut ancestor_map = HashMap::new();
 //!    ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
 //!    ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
 //!
@@ -57,10 +58,9 @@
 //!    let phrank = Phrank::new(adapter, false);
 //!
 //!    // 1. Define your cohort (Patient ID -> Vec<Phenotype IDs>)
-//!    let mut cohort = HashMap::new();
-//!    cohort.insert("P1".to_string(), vec!["HP:0001250".to_string()]);
-//!    cohort.insert("P2".to_string(), vec!["HP:0001250".to_string(), "HP:0000001".to_string()]);
-//!    cohort.insert("P3".to_string(), vec!["HP:0001250".to_string(), "HP:0000001".to_string()]);
+//!    let mut cohort = vec![CohortEntity::new("P1", vec!["HP:0001250".to_string()]),
+//!                          CohortEntity::new("P2", vec!["HP:0001250".to_string(), "HP:0000001".to_string()]),
+//!                          CohortEntity::new("P3", vec!["HP:0001250".to_string(), "HP:0000001".to_string()]),];
 //!
 //!    // 2. Calculate the similarity matrix
 //!    let (matrix, id_map) = phrank.calculate_similarity(&cohort)?;
@@ -73,5 +73,6 @@ pub mod ontology;
 pub use ontology::ontolius_adapter::CachedOntologyAdapter;
 pub mod phrank;
 pub use phrank::Phrank;
+pub mod cohort_entity;
 pub mod traits;
 pub(crate) mod types;

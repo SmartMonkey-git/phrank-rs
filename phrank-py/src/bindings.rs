@@ -2,9 +2,10 @@ use numpy::ToPyArray;
 use ontolius::io::OntologyLoaderBuilder;
 use ontolius::ontology::csr::FullCsrOntology;
 use phrank::Phrank;
+use phrank::cohort_entity::CohortEntity;
 use phrank::ontology::ontolius_adapter::CachedOntologyAdapter;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDict, PyList};
 use std::collections::HashMap;
 use std::fs::File;
 
@@ -16,6 +17,15 @@ use std::fs::File;
 #[pyclass(name = "PyPhrank")]
 pub struct PyPhrank {
     inner: Phrank<CachedOntologyAdapter<FullCsrOntology>>,
+}
+
+#[pyclass(name = "CohortEntity", from_py_object)]
+#[derive(Clone)]
+pub struct PyCohortEntity {
+    #[pyo3(get, set)]
+    pub id: String,
+    #[pyo3(get, set)]
+    pub features: Vec<String>,
 }
 
 #[pymethods]
@@ -58,9 +68,15 @@ impl PyPhrank {
     pub fn calculate_similarity<'py>(
         &self,
         py: Python<'py>, // Inject the Python GIL token
-        cohort: HashMap<String, Vec<String>>,
+        cohort: &Bound<'py, PyList>,
     ) -> PyResult<(Bound<'py, PyAny>, HashMap<usize, String>)> {
         let num_patients = cohort.len();
+
+        let cohort: Vec<CohortEntity> = cohort
+            .iter()
+            .map(|ce| ce.extract::<CohortEntity>())
+            .collect::<PyResult<Vec<_>>>()?;
+
         let (matrix, bimap) = self
             .inner
             .calculate_similarity(&cohort)
