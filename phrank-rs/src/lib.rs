@@ -48,7 +48,7 @@
 //! }
 //!fn main() -> Result<(), PhrankError> {
 //!    use phrank::cohort_entity::CohortEntity;
-//! let mut ancestor_map = HashMap::new();
+//!    let mut ancestor_map = HashMap::new();
 //!    ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
 //!    ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
 //!

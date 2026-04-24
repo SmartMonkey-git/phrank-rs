@@ -106,6 +106,16 @@ where
             return Err(PhrankError::CohortTooSmall(cohort.len()));
         }
 
+        if cohort
+            .iter()
+            .map(|entity| entity.id())
+            .collect::<HashSet<&str>>()
+            .len()
+            < cohort.len()
+        {
+            return Err(PhrankError::DuplicateIDs);
+        }
+
         let ic = self.calculate_ic(cohort)?;
 
         let mut matrix = TriMat::<f64>::new((cohort.len(), cohort.len()));
@@ -349,6 +359,33 @@ mod tests {
             PhrankError::CohortTooSmall(cohort_len) => {
                 assert_eq!(cohort_len, 1);
             }
+            _ => panic!("Wrong error"),
+        }
+
+        let res = phrank.calculate_similarity(&vec![]);
+
+        match res.err().unwrap() {
+            PhrankError::CohortTooSmall(cohort_len) => {
+                assert_eq!(cohort_len, 0);
+            }
+            _ => panic!("Wrong error"),
+        }
+    }
+
+    #[test]
+    fn test_cohort_duplicate_ids() {
+        let phrank = setup_mock_phrank();
+
+        let cohort = vec![
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+        ];
+
+        let res = phrank.calculate_similarity(&cohort);
+
+        match res.err().unwrap() {
+            PhrankError::DuplicateIDs => {}
             _ => panic!("Wrong error"),
         }
 
