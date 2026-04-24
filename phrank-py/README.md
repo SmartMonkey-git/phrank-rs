@@ -55,3 +55,7 @@ matrix, mapping = phrank.calculate_similarity(id_by_feature_id)
 
 print(f"Generated sparse matrix of shape: {matrix.shape}")
 ```
+
+# Credit
+
+Original Publication by Karthik A. Jagadeesh et al. [here](https://www.nature.com/articles/s41436-018-0072-y)
