@@ -31,17 +31,17 @@ Ensure you have your desired ontology backend dependencies configured alongside 
 
 Usage Example
 
-```Rust
+```rust
 use std::collections::HashMap;
 use phrank::Phrank;
 use phrank::ontology::OntologyAdapter;
 
 // 1. Initialize your ontology adapter
 // Assuming `my_ontology` is a valid source compatible with the adapter
-let adapter = OntologyAdapter::new(my_ontology) ?;
+let adapter = OntologyAdapter::new(my_ontology)?;
 
 // 2. Initialize the Phrank engine
-let phrank = Phrank { ontology: adapter };
+let phrank = Phrank::new(adapter, false);
 
 // 3. Define your cohort (Patient ID -> Vec<Phenotype IDs>)
 let mut cohort = HashMap::new();
@@ -50,7 +50,7 @@ cohort.insert("Patient_2".to_string(), vec!["HP:0001250".to_string(), "HP:000000
 
 // 4. Calculate the similarity matrix
 // Returns a TriMat (sparse matrix) and a BiMap for index-to-ID lookups
-let (matrix, id_map) = phrank.calculate_similarity( & cohort) ?;
+let (matrix, id_map) = phrank.calculate_similarity(&cohort)?;
 ```
 
 # Credit

@@ -54,7 +54,7 @@
 //!    let ontology = MockOntology{ancestor_map};
 //!
 //!    let adapter = CachedOntologyAdapter::new(ontology, 1500);
-//!    let phrank = Phrank::new(adapter);
+//!    let phrank = Phrank::new(adapter, false);
 //!
 //!    // 1. Define your cohort (Patient ID -> Vec<Phenotype IDs>)
 //!    let mut cohort = HashMap::new();
