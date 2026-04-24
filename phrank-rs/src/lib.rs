@@ -75,4 +75,3 @@ pub mod phrank;
 pub use phrank::Phrank;
 pub mod cohort_entity;
 pub mod traits;
-pub(crate) mod types;

@@ -362,7 +362,7 @@ mod tests {
             _ => panic!("Wrong error"),
         }
 
-        let res = phrank.calculate_similarity(&vec![]);
+        let res = phrank.calculate_similarity(vec![].as_slice());
 
         match res.err().unwrap() {
             PhrankError::CohortTooSmall(cohort_len) => {
@@ -389,7 +389,7 @@ mod tests {
             _ => panic!("Wrong error"),
         }
 
-        let res = phrank.calculate_similarity(&vec![]);
+        let res = phrank.calculate_similarity(vec![].as_slice());
 
         match res.err().unwrap() {
             PhrankError::CohortTooSmall(cohort_len) => {
