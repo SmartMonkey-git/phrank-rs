@@ -127,5 +127,6 @@ impl PyPhrank {
 #[pymodule]
 fn phrank_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPhrank>()?;
+    m.add_class::<PyCohortEntity>()?;
     Ok(())
 }
