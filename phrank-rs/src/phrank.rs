@@ -1,7 +1,7 @@
 use crate::cohort_entity::CohortEntity;
 use crate::error::PhrankError;
 use crate::traits::OntologyTraversal;
-use bimap::BiMap;
+use bimap::BiBTreeMap;
 use itertools::Itertools;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
@@ -101,7 +101,7 @@ where
     pub fn calculate_similarity(
         &self,
         cohort: &[CohortEntity],
-    ) -> Result<(TriMat<f64>, BiMap<usize, String>), PhrankError> {
+    ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
         if cohort.len() <= 2 {
             return Err(PhrankError::CohortTooSmall(cohort.len()));
         }
@@ -119,7 +119,7 @@ where
         let ic = self.calculate_ic(cohort)?;
 
         let mut matrix = TriMat::<f64>::new((cohort.len(), cohort.len()));
-        let pp_to_matrix_id: BiMap<usize, String> = cohort
+        let pp_to_matrix_id: BiBTreeMap<usize, String> = cohort
             .iter()
             .enumerate()
             .map(|(idx, entity)| (idx, entity.id().to_owned()))
@@ -169,7 +169,7 @@ mod tests {
     use std::collections::HashMap;
 
     #[allow(unused)]
-    fn print_patient_grid(trimat: &TriMat<f64>, patient_map: &BiMap<usize, String>) {
+    fn print_patient_grid(trimat: &TriMat<f64>, patient_map: &BiBTreeMap<usize, String>) {
         let (rows, cols) = trimat.shape();
         let csr: CsMat<f64> = trimat.to_csr();
 
@@ -301,6 +301,10 @@ mod tests {
         let (matrix, bimap) = phrank
             .calculate_similarity(&cohort)
             .expect("Failed to calculate similarity");
+
+        for (idx, (matrix_id, pp_id)) in bimap.iter().enumerate() {
+            assert_eq!(pp_id, cohort[idx].id())
+        }
 
         assert!(bimap.contains_right("P1"));
         assert!(bimap.contains_right("P2"));

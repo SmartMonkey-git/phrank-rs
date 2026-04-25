@@ -8,6 +8,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use std::fs::File;
 
+type PyPhrankResult<'py> = PyResult<(Bound<'py, PyAny>, Vec<(usize, String)>)>;
+
 /// A high-performance, phenotype-driven similarity engine.
 ///
 /// This engine calculates the structural similarity between patient cohorts
@@ -75,7 +77,7 @@ impl PyPhrank {
         &self,
         py: Python<'py>, // Inject the Python GIL token
         cohort: &Bound<'py, PyList>,
-    ) -> PyResult<(Bound<'py, PyAny>, Vec<(usize, String)>)> {
+    ) -> PyPhrankResult<'py> {
         let num_patients = cohort.len();
 
         let cohort: Vec<CohortEntity> = cohort
@@ -83,7 +85,7 @@ impl PyPhrank {
             .map(|ce| ce.extract::<CohortEntity>())
             .collect::<PyResult<Vec<_>>>()?;
 
-        let (matrix, bimap) = self
+        let (matrix, matrix_to_pp_id) = self
             .inner
             .calculate_similarity(&cohort)
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -108,10 +110,9 @@ impl PyPhrank {
 
         let csr_matrix = coo_matrix.call_method0("tocsr")?;
 
-        let id_map: Vec<(usize, String)> = cohort
-            .iter()
-            .enumerate()
-            .map(|(i, entity)| (i, entity.id().to_owned()))
+        let id_map: Vec<(usize, String)> = matrix_to_pp_id
+            .into_iter()
+            .map(|(matrix_id, pp_id)| (matrix_id, pp_id))
             .collect();
 
         Ok((csr_matrix, id_map))
