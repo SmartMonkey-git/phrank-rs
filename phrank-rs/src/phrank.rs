@@ -302,7 +302,7 @@ mod tests {
             .calculate_similarity(&cohort)
             .expect("Failed to calculate similarity");
 
-        for (idx, (matrix_id, pp_id)) in bimap.iter().enumerate() {
+        for (idx, (_matrix_id, pp_id)) in bimap.iter().enumerate() {
             assert_eq!(pp_id, cohort[idx].id())
         }
 

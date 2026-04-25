@@ -110,10 +110,7 @@ impl PyPhrank {
 
         let csr_matrix = coo_matrix.call_method0("tocsr")?;
 
-        let id_map: Vec<(usize, String)> = matrix_to_pp_id
-            .into_iter()
-            .map(|(matrix_id, pp_id)| (matrix_id, pp_id))
-            .collect();
+        let id_map: Vec<(usize, String)> = matrix_to_pp_id.into_iter().collect();
 
         Ok((csr_matrix, id_map))
     }
