@@ -8,4 +8,6 @@ pub enum PhrankError {
     TermIdNotFound(String),
     #[error("Cohort needs to be >= 2. Got {0}.")]
     CohortTooSmall(usize),
+    #[error("Found duplicate ID's in cohort.")]
+    DuplicateIDs,
 }

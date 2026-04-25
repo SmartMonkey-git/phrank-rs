@@ -1,7 +1,7 @@
+use crate::cohort_entity::CohortEntity;
 use crate::error::PhrankError;
 use crate::traits::OntologyTraversal;
-use crate::types::PatientPhenotypePairRef;
-use bimap::BiMap;
+use bimap::BiBTreeMap;
 use itertools::Itertools;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
@@ -47,20 +47,17 @@ where
     /// # Returns
     /// A `Result` containing a `HashMap` mapping phenotype IDs to their respective
     /// IC score as an `f32`, or a `PhrankError` if ontology traversal fails.
-    fn calculate_ic(
-        &self,
-        cohort: &HashMap<String, Vec<String>>,
-    ) -> Result<HashMap<String, f64>, PhrankError> {
+    fn calculate_ic(&self, cohort: &[CohortEntity]) -> Result<HashMap<String, f64>, PhrankError> {
         let cohort_size = cohort.len() as f64;
 
         let mut direct_associations: HashMap<&String, HashSet<&str>> = HashMap::new();
 
-        for (id, features) in cohort.iter() {
-            for feature_id in features.iter() {
+        for entity in cohort.iter() {
+            for feature_id in entity.features() {
                 direct_associations
                     .entry(feature_id)
                     .or_default()
-                    .insert(id);
+                    .insert(entity.id());
             }
         }
 
@@ -103,40 +100,48 @@ where
     ///    the sparse matrix to the original string-based Patient IDs.
     pub fn calculate_similarity(
         &self,
-        cohort: &HashMap<String, Vec<String>>,
-    ) -> Result<(TriMat<f64>, BiMap<usize, String>), PhrankError> {
+        cohort: &[CohortEntity],
+    ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
         if cohort.len() <= 2 {
             return Err(PhrankError::CohortTooSmall(cohort.len()));
+        }
+
+        if cohort
+            .iter()
+            .map(|entity| entity.id())
+            .collect::<HashSet<&str>>()
+            .len()
+            < cohort.len()
+        {
+            return Err(PhrankError::DuplicateIDs);
         }
 
         let ic = self.calculate_ic(cohort)?;
 
         let mut matrix = TriMat::<f64>::new((cohort.len(), cohort.len()));
-        let pp_to_matrix_id: BiMap<usize, String> = cohort
+        let pp_to_matrix_id: BiBTreeMap<usize, String> = cohort
             .iter()
             .enumerate()
-            .map(|(idx, (id, _))| (idx, id.clone()))
+            .map(|(idx, entity)| (idx, entity.id().to_owned()))
             .collect();
 
         let product: Vec<_> = cohort.iter().cartesian_product(cohort.iter()).collect();
 
         let results: Vec<(usize, usize, f64)> = product
             .par_iter()
-            .map(
-                |((id_1, features_1), (id_2, features_2)): PatientPhenotypePairRef| {
-                    let mut similarity = 0.0_f64;
+            .map(|(entity_1, entity_2): &(&CohortEntity, &CohortEntity)| {
+                let mut similarity = 0.0_f64;
 
-                    for key in HashSet::<&String>::from_iter(features_1.iter())
-                        .intersection(&HashSet::<&String>::from_iter(features_2.iter()))
-                    {
-                        similarity += ic.get(*key).unwrap_or(&0.0);
-                    }
+                for key in HashSet::<&String>::from_iter(entity_1.features().iter())
+                    .intersection(&HashSet::<&String>::from_iter(entity_2.features().iter()))
+                {
+                    similarity += ic.get(*key).unwrap_or(&0.0);
+                }
 
-                    let row = *pp_to_matrix_id.get_by_right(id_1.as_str()).unwrap();
-                    let col = *pp_to_matrix_id.get_by_right(id_2.as_str()).unwrap();
-                    (row, col, similarity)
-                },
-            )
+                let row = *pp_to_matrix_id.get_by_right(entity_1.id()).unwrap();
+                let col = *pp_to_matrix_id.get_by_right(entity_2.id()).unwrap();
+                (row, col, similarity)
+            })
             .collect();
 
         let (normalizer, min) = match self.normalize {
@@ -164,9 +169,9 @@ mod tests {
     use std::collections::HashMap;
 
     #[allow(unused)]
-    fn print_patient_grid(trimat: &TriMat<f32>, patient_map: &BiMap<usize, String>) {
+    fn print_patient_grid(trimat: &TriMat<f64>, patient_map: &BiBTreeMap<usize, String>) {
         let (rows, cols) = trimat.shape();
-        let csr: CsMat<f32> = trimat.to_csr();
+        let csr: CsMat<f64> = trimat.to_csr();
 
         let get_id = |index: &usize| -> &str {
             patient_map
@@ -222,9 +227,11 @@ mod tests {
     #[test]
     fn test_calculate_ic() {
         let phrank = setup_mock_phrank();
-        let mut cohort = HashMap::new();
-        cohort.insert("P1".to_string(), vec!["HP:001".to_string()]);
-        cohort.insert("P2".to_string(), vec!["HP:002".to_string()]);
+
+        let cohort = vec![
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P2", vec!["HP:002".to_string()]),
+        ];
 
         let ic_map = phrank
             .calculate_ic(&cohort)
@@ -238,9 +245,10 @@ mod tests {
     #[test]
     fn test_calculate_ic_same() {
         let phrank = setup_mock_phrank();
-        let mut cohort = HashMap::new();
-        cohort.insert("P1".to_string(), vec!["HP:001".to_string()]);
-        cohort.insert("P2".to_string(), vec!["HP:001".to_string()]);
+        let cohort = vec![
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P2", vec!["HP:001".to_string()]),
+        ];
 
         let ic_map = phrank
             .calculate_ic(&cohort)
@@ -253,11 +261,12 @@ mod tests {
     #[test]
     fn test_no_similarity() {
         let phrank = setup_mock_phrank();
-        let mut cohort = HashMap::new();
 
-        cohort.insert("P1".to_string(), vec!["HP:001".to_string()]);
-        cohort.insert("P2".to_string(), vec!["HP:002".to_string()]);
-        cohort.insert("P3".to_string(), vec!["HP:003".to_string()]);
+        let cohort = vec![
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P2", vec!["HP:002".to_string()]),
+            CohortEntity::new("P3", vec!["HP:003".to_string()]),
+        ];
 
         let (matrix, bimap) = phrank
             .calculate_similarity(&cohort)
@@ -275,21 +284,27 @@ mod tests {
             .get(id_a, id_b)
             .copied()
             .expect("Failed to get sim score");
+
         assert_eq!(sim_score, 0.0);
     }
 
     #[test]
     fn test_similarity() {
         let phrank = setup_mock_phrank();
-        let mut cohort = HashMap::new();
 
-        cohort.insert("P1".to_string(), vec!["HP:001".to_string()]);
-        cohort.insert("P2".to_string(), vec!["HP:001".to_string()]);
-        cohort.insert("P3".to_string(), vec!["HP:002".to_string()]);
+        let cohort = vec![
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P2", vec!["HP:001".to_string()]),
+            CohortEntity::new("P3", vec!["HP:002".to_string()]),
+        ];
 
         let (matrix, bimap) = phrank
             .calculate_similarity(&cohort)
             .expect("Failed to calculate similarity");
+
+        for (idx, (_matrix_id, pp_id)) in bimap.iter().enumerate() {
+            assert_eq!(pp_id, cohort[idx].id())
+        }
 
         assert!(bimap.contains_right("P1"));
         assert!(bimap.contains_right("P2"));
@@ -298,8 +313,7 @@ mod tests {
         let p_id_2 = *bimap.get_by_right("P2").unwrap();
         let p_id_3 = *bimap.get_by_right("P3").unwrap();
 
-        let csr_matrix: sprs::CsMat<f64> = matrix.to_csr();
-        println!("{:?}", csr_matrix);
+        let csr_matrix: CsMat<f64> = matrix.to_csr();
 
         let sim_score_p1_p2 = csr_matrix
             .get(p_id_1, p_id_2)
@@ -319,11 +333,12 @@ mod tests {
     #[test]
     fn test_matrix_shape_three() {
         let phrank = setup_mock_phrank();
-        let mut cohort = HashMap::new();
 
-        cohort.insert("P1".to_string(), vec!["HP:001".to_string()]);
-        cohort.insert("P2".to_string(), vec!["HP:002".to_string()]);
-        cohort.insert("P3".to_string(), vec!["HP:003".to_string()]);
+        let cohort = vec![
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P2", vec!["HP:002".to_string()]),
+            CohortEntity::new("P3", vec!["HP:002".to_string()]),
+        ];
 
         let (matrix, _bimap) = phrank
             .calculate_similarity(&cohort)
@@ -339,9 +354,8 @@ mod tests {
     #[test]
     fn test_cohort_too_small() {
         let phrank = setup_mock_phrank();
-        let mut cohort = HashMap::new();
 
-        cohort.insert("P1".to_string(), vec!["HP:001".to_string()]);
+        let cohort = vec![CohortEntity::new("P1", vec!["HP:001".to_string()])];
 
         let res = phrank.calculate_similarity(&cohort);
 
@@ -352,7 +366,34 @@ mod tests {
             _ => panic!("Wrong error"),
         }
 
-        let res = phrank.calculate_similarity(&HashMap::new());
+        let res = phrank.calculate_similarity(vec![].as_slice());
+
+        match res.err().unwrap() {
+            PhrankError::CohortTooSmall(cohort_len) => {
+                assert_eq!(cohort_len, 0);
+            }
+            _ => panic!("Wrong error"),
+        }
+    }
+
+    #[test]
+    fn test_cohort_duplicate_ids() {
+        let phrank = setup_mock_phrank();
+
+        let cohort = vec![
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+        ];
+
+        let res = phrank.calculate_similarity(&cohort);
+
+        match res.err().unwrap() {
+            PhrankError::DuplicateIDs => {}
+            _ => panic!("Wrong error"),
+        }
+
+        let res = phrank.calculate_similarity(vec![].as_slice());
 
         match res.err().unwrap() {
             PhrankError::CohortTooSmall(cohort_len) => {

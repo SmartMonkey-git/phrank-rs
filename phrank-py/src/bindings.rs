@@ -2,11 +2,13 @@ use numpy::ToPyArray;
 use ontolius::io::OntologyLoaderBuilder;
 use ontolius::ontology::csr::FullCsrOntology;
 use phrank::Phrank;
+use phrank::cohort_entity::CohortEntity;
 use phrank::ontology::ontolius_adapter::CachedOntologyAdapter;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
-use std::collections::HashMap;
+use pyo3::types::{PyDict, PyList};
 use std::fs::File;
+
+type PyPhrankResult<'py> = PyResult<(Bound<'py, PyAny>, Vec<(usize, String)>)>;
 
 /// A high-performance, phenotype-driven similarity engine.
 ///
@@ -16,6 +18,22 @@ use std::fs::File;
 #[pyclass(name = "PyPhrank")]
 pub struct PyPhrank {
     inner: Phrank<CachedOntologyAdapter<FullCsrOntology>>,
+}
+
+#[pyclass(name = "CohortEntity", from_py_object)]
+#[derive(Clone)]
+pub struct PyCohortEntity {
+    #[pyo3(get, set)]
+    pub id: String,
+    #[pyo3(get, set)]
+    pub features: Vec<String>,
+}
+#[pymethods]
+impl PyCohortEntity {
+    #[new]
+    pub fn new(id: String, features: Vec<String>) -> Self {
+        Self { id, features }
+    }
 }
 
 #[pymethods]
@@ -58,10 +76,16 @@ impl PyPhrank {
     pub fn calculate_similarity<'py>(
         &self,
         py: Python<'py>, // Inject the Python GIL token
-        cohort: HashMap<String, Vec<String>>,
-    ) -> PyResult<(Bound<'py, PyAny>, HashMap<usize, String>)> {
+        cohort: &Bound<'py, PyList>,
+    ) -> PyPhrankResult<'py> {
         let num_patients = cohort.len();
-        let (matrix, bimap) = self
+
+        let cohort: Vec<CohortEntity> = cohort
+            .iter()
+            .map(|ce| ce.extract::<CohortEntity>())
+            .collect::<PyResult<Vec<_>>>()?;
+
+        let (matrix, matrix_to_pp_id) = self
             .inner
             .calculate_similarity(&cohort)
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -86,30 +110,15 @@ impl PyPhrank {
 
         let csr_matrix = coo_matrix.call_method0("tocsr")?;
 
-        let mut id_map = HashMap::new();
-        for (idx, patient_id) in bimap.iter() {
-            id_map.insert(*idx, patient_id.clone());
-        }
+        let id_map: Vec<(usize, String)> = matrix_to_pp_id.into_iter().collect();
 
         Ok((csr_matrix, id_map))
     }
 }
 
-/// Calculate the pairwise similarity matrix for a patient cohort.
-///
-/// This method computes the similarity using parallelized Rust operations
-/// and returns a zero-copy SciPy CSR matrix directly to Python memory.
-///
-/// Args:
-///     cohort (dict[str, list[str]]): A dictionary mapping Patient IDs
-///         to a list of phenotype/HPO terms.
-///
-/// Returns:
-///     tuple[scipy.sparse.csr_matrix, dict[int, str]]:
-///         - The N x N similarity matrix.
-///         - A dictionary mapping matrix row/col indices to the original Patient IDs.
 #[pymodule]
 fn phrank_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPhrank>()?;
+    m.add_class::<PyCohortEntity>()?;
     Ok(())
 }
