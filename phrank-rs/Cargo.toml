@@ -7,7 +7,7 @@ repository = "https://github.com/SmartMonkey-git/phrank-rs"
 keywords = ["ontology", "hpo", "similarity"]
 license = "MIT"
 name = "phrank"
-version = "0.2.8"
+version = "0.2.9"
 
 [dependencies]
 bimap = "0.6.3"
