@@ -81,21 +81,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Python version
   build-wheels:
     runs-on: ${{ matrix.os }}
     needs: release-crates-io
     strategy:
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
+        python-version: [ '3.10', '3.11', '3.12', '3.13' ]
 
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
 
-      # Bump version
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -109,19 +108,13 @@ jobs:
         id: set_version
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          echo "Setting version to: $VERSION"
-
-          # Bump the version using cargo-edit
           cargo set-version $VERSION
-
-          # Output for later steps
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set specific version
         run: |
           pip install toml-cli
           toml set --toml-path ./phrank-py/pyproject.toml project.version "${{ github.event.inputs.version }}"
-
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -134,7 +127,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: wheels-${{ matrix.os }}-${{ matrix.python-version }}
           path: ./phrank-py/dist
 
   release-pypi:
