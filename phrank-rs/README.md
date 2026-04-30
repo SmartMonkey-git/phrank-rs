@@ -41,7 +41,7 @@ use phrank::ontology::OntologyAdapter;
 let adapter = OntologyAdapter::new(my_ontology)?;
 
 // 2. Initialize the Phrank engine
-let phrank = Phrank::new(adapter, false);
+let phrank = Phrank::new(adapter);
 
 // 3. Define your cohort (Patient ID -> Vec<Phenotype IDs>)
 let mut cohort = HashMap::new();
