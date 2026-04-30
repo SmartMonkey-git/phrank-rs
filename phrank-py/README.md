@@ -31,7 +31,7 @@ import os
 from pathlib import Path
 from google.protobuf.json_format import Parse
 from phenopackets import Phenopacket
-from phrank_py import PyPhrank
+from phrank_py import PyPhrank, CohortEntity
 
 # 1. Initialize the Phrank Engine with your ontology JSON
 phrank = PyPhrank("./hp.json", cache_size=1500)
@@ -39,19 +39,20 @@ phrank = PyPhrank("./hp.json", cache_size=1500)
 # 2. Load your patient cohort (e.g., from a directory of Phenopackets)
 pp_dir = Path(os.path.expanduser("./phenopackets"))
 cohort: list[Phenopacket] = [
-Parse(json_file.read_text(encoding="utf-8"), Phenopacket())
-for json_file in pp_dir.glob("*.json")
+    Parse(json_file.read_text(encoding="utf-8"), Phenopacket())
+    for json_file in pp_dir.glob("*.json")
 ]
 
 # 3. Map Patient IDs to a list of their phenotypic feature IDs
-id_by_feature_id = {
-pp.id: list({pt.type.id for pt in pp.phenotypic_features})
-for pp in cohort
-}
+cohort_entities = [
+    CohortEntity(pp.id, pt.type.id)
+    for pp in cohort
+    for pt in pp.phenotypic_features 
+]
 
 # 4. Calculate the similarity matrix
 # Returns a SciPy CSR matrix and a mapping of matrix indices to Patient IDs
-matrix, mapping = phrank.calculate_similarity(id_by_feature_id)
+matrix, mapping = phrank.calculate_similarity(cohort_entities)
 
 print(f"Generated sparse matrix of shape: {matrix.shape}")
 ```
