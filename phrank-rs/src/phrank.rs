@@ -133,6 +133,7 @@ where
                 {
                     similarity += ic
                         .get(*key)
+                        // This should never happen. If it does, then there is a bug in the algorithm.
                         .unwrap_or_else(|| panic!("Missing Information Content for input {key}."));
                 }
 
