@@ -133,7 +133,7 @@ where
                 {
                     similarity += ic
                         .get(*key)
-                        .expect(&format!("Missing Information Content for input {key}."));
+                        .unwrap_or_else(|| panic!("Missing Information Content for input {key}."));
                 }
 
                 let row = *pp_to_matrix_id.get_by_right(entity_1.id()).unwrap();
