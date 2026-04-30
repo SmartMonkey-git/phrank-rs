@@ -55,7 +55,7 @@
 //!    let ontology = MockOntology{ancestor_map};
 //!
 //!    let adapter = CachedOntologyAdapter::new(ontology, 1500);
-//!    let phrank = Phrank::new(adapter, false);
+//!    let phrank = Phrank::new(adapter);
 //!
 //!    // 1. Define your cohort (Patient ID -> Vec<Phenotype IDs>)
 //!    let mut cohort = vec![CohortEntity::new("P1", vec!["HP:0001250".to_string()]),

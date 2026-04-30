@@ -15,18 +15,14 @@ use std::collections::{HashMap, HashSet};
 /// to weight the rarity and significance of shared phenotypes.
 pub struct Phrank<O> {
     ontology: O,
-    normalize: bool,
 }
 
 impl<O> Phrank<O>
 where
     O: OntologyTraversal,
 {
-    pub fn new(ontology: O, normalize: bool) -> Self {
-        Self {
-            ontology,
-            normalize,
-        }
+    pub fn new(ontology: O) -> Self {
+        Self { ontology }
     }
 }
 
@@ -135,7 +131,9 @@ where
                 for key in HashSet::<&String>::from_iter(entity_1.features().iter())
                     .intersection(&HashSet::<&String>::from_iter(entity_2.features().iter()))
                 {
-                    similarity += ic.get(*key).unwrap_or(&0.0);
+                    similarity += ic
+                        .get(*key)
+                        .expect(&format!("Missing Information Content for input {key}."));
                 }
 
                 let row = *pp_to_matrix_id.get_by_right(entity_1.id()).unwrap();
@@ -144,17 +142,8 @@ where
             })
             .collect();
 
-        let (normalizer, min) = match self.normalize {
-            true => {
-                let min = results.iter().min_by(|a, b| a.2.total_cmp(&b.2)).unwrap().2;
-                let max = results.iter().max_by(|a, b| a.2.total_cmp(&b.2)).unwrap().2;
-                (max - min, min)
-            }
-            false => (1.0, 0.0),
-        };
-
         for (row, col, sim) in results {
-            matrix.add_triplet(row, col, (sim - min) / normalizer);
+            matrix.add_triplet(row, col, sim);
         }
 
         Ok((matrix, pp_to_matrix_id))
@@ -216,12 +205,10 @@ mod tests {
         let mut ancestor_map = HashMap::new();
         ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
         ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
+        ancestor_map.insert("HP:003".to_string(), vec!["HP:002".to_string()]);
 
         let ontology = MockOntology { ancestor_map };
-        Phrank {
-            ontology,
-            normalize: false,
-        }
+        Phrank { ontology }
     }
 
     #[test]
