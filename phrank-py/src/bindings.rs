@@ -21,7 +21,7 @@ pub struct PyPhrank {
 }
 
 #[pyclass(name = "CohortEntity", from_py_object)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PyCohortEntity {
     #[pyo3(get, set)]
     pub id: String,
@@ -75,7 +75,7 @@ impl PyPhrank {
     ///         - A dictionary mapping matrix row/col indices to the original Patient IDs.
     pub fn calculate_similarity<'py>(
         &self,
-        py: Python<'py>, // Inject the Python GIL token
+        py: Python<'py>,
         cohort: &Bound<'py, PyList>,
     ) -> PyPhrankResult<'py> {
         let num_patients = cohort.len();
