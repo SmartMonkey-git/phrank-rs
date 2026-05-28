@@ -79,3 +79,113 @@ impl OntologyTraversal for FullCsrOntology {
         }
     }
 }
+
+#[cfg(feature = "obo")]
+mod obo {
+    use crate::error::PhrankError;
+    use crate::traits::OntologyTraversal;
+    use fastobo::ast::{EntityFrame, OboDoc, TermClause};
+    use std::collections::{HashMap, HashSet, VecDeque};
+
+    impl OntologyTraversal for OboDoc {
+        fn get_ancestor_ids(&self, child_id: &str) -> Result<Vec<String>, PhrankError> {
+            let mut parent_map: HashMap<String, Vec<String>> = HashMap::new();
+            let mut term_exists = false;
+
+            let entities: &[EntityFrame] = self.as_ref();
+            for entity in entities {
+                if let EntityFrame::Term(term_frame) = entity {
+                    let id = term_frame.id().as_inner().to_string();
+
+                    if id == child_id {
+                        term_exists = true;
+                    }
+
+                    let mut parents = Vec::new();
+
+                    for line in term_frame.as_ref() {
+                        if let TermClause::IsA(parent_ident) = line.as_inner() {
+                            parents.push(parent_ident.to_string());
+                        }
+                    }
+
+                    parent_map.insert(id, parents);
+                }
+            }
+
+            if !term_exists {
+                return Err(PhrankError::TermIdNotFound(child_id.to_string()));
+            }
+
+            let mut ancestors = HashSet::new();
+            let mut queue = VecDeque::new();
+
+            if let Some(direct_parents) = parent_map.get(child_id) {
+                for parent in direct_parents {
+                    ancestors.insert(parent.clone());
+                    queue.push_back(parent.clone());
+                }
+            }
+
+            while let Some(current_id) = queue.pop_front() {
+                if let Some(parents) = parent_map.get(&current_id) {
+                    for parent_id in parents {
+                        // If we haven't seen this ancestor yet, add it and queue it up
+                        // (This HashSet check also protects against cycles in malformed ontologies)
+                        if ancestors.insert(parent_id.clone()) {
+                            queue.push_back(parent_id.clone());
+                        }
+                    }
+                }
+            }
+
+            let ancestor_vec: Vec<String> = ancestors.into_iter().collect();
+            Ok(ancestor_vec)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use crate::traits::OntologyTraversal;
+        use ontolius::io::OntologyLoaderBuilder;
+        use ontolius::ontology::csr::FullCsrOntology;
+        use ontology_registry::{
+            BioRegistryMetadataProvider, FileSystemOntologyRegistry, FileType, OboLibraryProvider,
+            OntologyRegistration, RegistryKey, SupportedOntology, Version,
+        };
+        use std::env::temp_dir;
+        use std::io::BufReader;
+
+        #[test]
+        #[ignore]
+        fn test_consistency() {
+            let tepmdir = temp_dir();
+
+            let registry = FileSystemOntologyRegistry::new(
+                tepmdir,
+                BioRegistryMetadataProvider::default(),
+                OboLibraryProvider::default(),
+            );
+
+            let json_hpo_key =
+                RegistryKey::new(SupportedOntology::HP, Version::Latest, FileType::Json);
+
+            let json_hpo = registry.register(json_hpo_key).unwrap();
+            let loader = OntologyLoaderBuilder::new().obographs_parser().build();
+            let ontolius: FullCsrOntology = loader.load_from_read(json_hpo).unwrap();
+            let mut json_childs = ontolius.get_ancestor_ids("HP:0006803").unwrap();
+            json_childs.sort();
+
+            let obo_hpo_key =
+                RegistryKey::new(SupportedOntology::HP, Version::Latest, FileType::Obo);
+            let ontology_path = registry.register(obo_hpo_key).unwrap();
+            let mut reader = BufReader::new(ontology_path);
+            let obo_doc = fastobo::from_reader(&mut reader).unwrap();
+
+            let mut obo_childs = obo_doc.get_ancestor_ids("HP:0006803").unwrap();
+            obo_childs.sort();
+
+            assert_eq!(json_childs, obo_childs);
+        }
+    }
+}
