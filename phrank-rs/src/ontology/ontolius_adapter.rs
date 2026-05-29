@@ -130,8 +130,6 @@ mod obo {
             while let Some(current_id) = queue.pop_front() {
                 if let Some(parents) = parent_map.get(&current_id) {
                     for parent_id in parents {
-                        // If we haven't seen this ancestor yet, add it and queue it up
-                        // (This HashSet check also protects against cycles in malformed ontologies)
                         if ancestors.insert(parent_id.clone()) {
                             queue.push_back(parent_id.clone());
                         }
@@ -173,8 +171,8 @@ mod obo {
             let json_hpo = registry.register(json_hpo_key).unwrap();
             let loader = OntologyLoaderBuilder::new().obographs_parser().build();
             let ontolius: FullCsrOntology = loader.load_from_read(json_hpo).unwrap();
-            let mut json_childs = ontolius.get_ancestor_ids("HP:0006803").unwrap();
-            json_childs.sort();
+            let mut json_ancestors = ontolius.get_ancestor_ids("HP:0006803").unwrap();
+            json_ancestors.sort();
 
             let obo_hpo_key =
                 RegistryKey::new(SupportedOntology::HP, Version::Latest, FileType::Obo);
@@ -182,10 +180,10 @@ mod obo {
             let mut reader = BufReader::new(ontology_path);
             let obo_doc = fastobo::from_reader(&mut reader).unwrap();
 
-            let mut obo_childs = obo_doc.get_ancestor_ids("HP:0006803").unwrap();
-            obo_childs.sort();
+            let mut obo_ancestors = obo_doc.get_ancestor_ids("HP:0006803").unwrap();
+            obo_ancestors.sort();
 
-            assert_eq!(json_childs, obo_childs);
+            assert_eq!(json_ancestors, obo_ancestors);
         }
     }
 }
