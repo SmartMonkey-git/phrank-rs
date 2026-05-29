@@ -49,6 +49,7 @@ where
         Ok(ancestors)
     }
 }
+
 impl OntologyTraversal for FullCsrOntology {
     /// Retrieves all ancestor IDs for a given child term ID.
     ///
@@ -81,7 +82,7 @@ impl OntologyTraversal for FullCsrOntology {
 }
 
 #[cfg(feature = "obo")]
-mod obo {
+pub mod obo {
     use crate::error::PhrankError;
     use crate::traits::OntologyTraversal;
     use fastobo::ast::{EntityFrame, OboDoc, TermClause};
