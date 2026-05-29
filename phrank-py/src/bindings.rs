@@ -3,10 +3,14 @@ use ontolius::io::OntologyLoaderBuilder;
 use ontolius::ontology::csr::FullCsrOntology;
 use phrank::Phrank;
 use phrank::cohort_entity::CohortEntity;
+use phrank::error::PhrankError;
 use phrank::ontology::ontolius_adapter::CachedOntologyAdapter;
+use phrank::traits::OntologyTraversal;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
 
 type PyPhrankResult<'py> = PyResult<(Bound<'py, PyAny>, Vec<(usize, String)>)>;
 
@@ -17,7 +21,7 @@ type PyPhrankResult<'py> = PyResult<(Bound<'py, PyAny>, Vec<(usize, String)>)>;
 /// Rust's parallelization and zero-copy memory transfers to SciPy.
 #[pyclass(name = "PyPhrank")]
 pub struct PyPhrank {
-    inner: Phrank<CachedOntologyAdapter<FullCsrOntology>>,
+    inner: Phrank<CachedOntologyAdapter<OntologyWrapper>>,
 }
 
 #[pyclass(name = "CohortEntity", from_py_object)]
@@ -36,6 +40,44 @@ impl PyCohortEntity {
     }
 }
 
+#[pyclass(name = "Ontology", from_py_object)]
+#[derive(Clone, Debug)]
+pub enum PyOntology {
+    Json { ontology_dir: String },
+    Obo { ontology_dir: String },
+}
+
+struct OntologyWrapper(Box<dyn OntologyTraversal + Send + Sync>);
+
+impl OntologyTraversal for OntologyWrapper {
+    fn get_ancestor_ids(&self, child: &str) -> Result<Vec<String>, PhrankError> {
+        self.0.get_ancestor_ids(child)
+    }
+}
+fn init_ontology(ontology_dir: &PyOntology, cache_size: u64) -> PyResult<OntologyWrapper> {
+    match ontology_dir {
+        PyOntology::Json { ontology_dir } => {
+            let path = Path::new(&ontology_dir);
+            let loader = OntologyLoaderBuilder::new().obographs_parser().build();
+            let ontology: FullCsrOntology = loader
+                .load_from_path(path)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            Ok(OntologyWrapper(Box::new(CachedOntologyAdapter::new(
+                ontology, cache_size,
+            ))))
+        }
+        PyOntology::Obo { ontology_dir } => {
+            let path = Path::new(&ontology_dir);
+            let ontology_file = File::open(path)?;
+            let mut reader = BufReader::new(ontology_file);
+            let obo_doc = fastobo::from_reader(&mut reader).unwrap();
+            Ok(OntologyWrapper(Box::new(CachedOntologyAdapter::new(
+                obo_doc, cache_size,
+            ))))
+        }
+    }
+}
+
 #[pymethods]
 impl PyPhrank {
     /// Initialize the Phrank Engine with a specific ontology.
@@ -46,13 +88,9 @@ impl PyPhrank {
     /// Returns:
     ///     PhrankEngine: A ready-to-use similarity engine.
     #[new]
-    pub fn new(ontology_path: &str, cache_size: u64) -> PyResult<Self> {
-        let loader = OntologyLoaderBuilder::new().obographs_parser().build();
+    pub fn new(ontology_path: PyOntology, cache_size: u64) -> PyResult<Self> {
+        let ontology = init_ontology(&ontology_path, cache_size)?;
 
-        let ontology_file = File::open(ontology_path)?;
-        let ontology = loader
-            .load_from_read(ontology_file)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         let adapter = CachedOntologyAdapter::new(ontology, cache_size);
 
         let inner = Phrank::new(adapter);
