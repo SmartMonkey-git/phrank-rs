@@ -49,8 +49,8 @@
 //!fn main() -> Result<(), PhrankError> {
 //!    use phrank::cohort_entity::CohortEntity;
 //!    let mut ancestor_map = HashMap::new();
-//!    ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
-//!    ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
+//!    ancestor_map.insert("HP:001", vec!["HP:000"]);
+//!    ancestor_map.insert("HP:002", vec!["HP:000"]);
 //!
 //!    let ontology = MockOntology{ancestor_map};
 //!
@@ -58,9 +58,9 @@
 //!    let phrank = Phrank::new(adapter);
 //!
 //!    // 1. Define your cohort (Patient ID -> Vec<Phenotype IDs>)
-//!    let mut cohort = vec![CohortEntity::new("P1", vec!["HP:0001250".to_string()]),
-//!                          CohortEntity::new("P2", vec!["HP:0001250".to_string(), "HP:0000001".to_string()]),
-//!                          CohortEntity::new("P3", vec!["HP:0001250".to_string(), "HP:0000001".to_string()]),];
+//!    let mut cohort = vec![CohortEntity::new("P1", vec!["HP:0001250"]),
+//!                          CohortEntity::new("P2", vec!["HP:0001250", "HP:0000001"]),
+//!                          CohortEntity::new("P3", vec!["HP:0001250", "HP:0000001"]),];
 //!
 //!    // 2. Calculate the similarity matrix
 //!    let (matrix, id_map) = phrank.calculate_similarity(&cohort)?;
