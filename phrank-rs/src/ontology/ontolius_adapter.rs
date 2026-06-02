@@ -5,6 +5,7 @@ use ontolius::TermId;
 use ontolius::ontology::HierarchyWalks;
 use ontolius::ontology::csr::FullCsrOntology;
 use std::str::FromStr;
+use std::sync::Arc;
 
 /// An adapter that bridges a concrete ontology implementation with the
 /// `OntologyTraversal` trait required by the Phrank algorithm.
@@ -78,6 +79,12 @@ impl OntologyTraversal for FullCsrOntology {
             }
             Err(_) => Err(PhrankError::TermIdNotFound(child_id.to_string())),
         }
+    }
+}
+
+impl<T: ?Sized + OntologyTraversal> OntologyTraversal for Arc<T> {
+    fn get_ancestor_ids(&self, child: &str) -> Result<Vec<String>, PhrankError> {
+        (**self).get_ancestor_ids(child)
     }
 }
 
