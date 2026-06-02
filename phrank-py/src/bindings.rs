@@ -40,6 +40,15 @@ impl PyCohortEntity {
     }
 }
 
+impl<'a> From<&'a PyCohortEntity> for CohortEntity<'a> {
+    fn from(value: &'a PyCohortEntity) -> Self {
+        CohortEntity::new(
+            &value.id,
+            value.features.iter().map(|v| v.as_str()).collect(),
+        )
+    }
+}
+
 #[pyclass(name = "Ontology", from_py_object)]
 #[derive(Clone, Debug)]
 pub enum PyOntology {
@@ -114,14 +123,11 @@ impl PyPhrank {
     pub fn calculate_similarity<'py>(
         &self,
         py: Python<'py>,
-        cohort: &Bound<'py, PyList>,
+        cohort: Vec<PyCohortEntity>,
     ) -> PyPhrankResult<'py> {
         let num_patients = cohort.len();
 
-        let cohort: Vec<CohortEntity> = cohort
-            .iter()
-            .map(|ce| ce.extract::<CohortEntity>())
-            .collect::<PyResult<Vec<_>>>()?;
+        let cohort: Vec<CohortEntity> = cohort.iter().map(|ce| ce.into()).collect::<Vec<_>>();
 
         let (matrix, matrix_to_pp_id) = self
             .inner

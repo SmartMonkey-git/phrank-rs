@@ -1,21 +1,20 @@
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone)]
-#[cfg_attr(feature = "python", derive(pyo3::FromPyObject))]
-pub struct CohortEntity {
-    id: String,
-    features: Vec<String>,
+pub struct CohortEntity<'a> {
+    id: &'a str,
+    features: Vec<&'a str>,
 }
 
-impl CohortEntity {
-    pub fn new(id: impl Into<String>, features: Vec<String>) -> Self {
+impl<'a> CohortEntity<'a> {
+    pub fn new(id: &'a str, features: Vec<&'a str>) -> Self {
         Self {
             id: id.into(),
             features,
         }
     }
     pub fn id(&self) -> &str {
-        &self.id
+        self.id
     }
-    pub fn features(&self) -> &[String] {
+    pub fn features(&self) -> &[&'a str] {
         &self.features
     }
 }
