@@ -7,7 +7,7 @@ use phrank::error::PhrankError;
 use phrank::ontology::ontolius_adapter::CachedOntologyAdapter;
 use phrank::traits::OntologyTraversal;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::PyDict;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -37,6 +37,15 @@ impl PyCohortEntity {
     #[new]
     pub fn new(id: String, features: Vec<String>) -> Self {
         Self { id, features }
+    }
+}
+
+impl<'a> From<&'a PyCohortEntity> for CohortEntity<'a> {
+    fn from(value: &'a PyCohortEntity) -> Self {
+        CohortEntity::new(
+            &value.id,
+            value.features.iter().map(|v| v.as_str()).collect(),
+        )
     }
 }
 
@@ -114,14 +123,11 @@ impl PyPhrank {
     pub fn calculate_similarity<'py>(
         &self,
         py: Python<'py>,
-        cohort: &Bound<'py, PyList>,
+        cohort: Vec<PyCohortEntity>,
     ) -> PyPhrankResult<'py> {
         let num_patients = cohort.len();
 
-        let cohort: Vec<CohortEntity> = cohort
-            .iter()
-            .map(|ce| ce.extract::<CohortEntity>())
-            .collect::<PyResult<Vec<_>>>()?;
+        let cohort: Vec<CohortEntity> = cohort.iter().map(|ce| ce.into()).collect::<Vec<_>>();
 
         let (matrix, matrix_to_pp_id) = self
             .inner

@@ -46,12 +46,12 @@ where
     fn calculate_ic(&self, cohort: &[CohortEntity]) -> Result<HashMap<String, f64>, PhrankError> {
         let cohort_size = cohort.len() as f64;
 
-        let mut direct_associations: HashMap<&String, HashSet<&str>> = HashMap::new();
+        let mut direct_associations: HashMap<&str, HashSet<&str>> = HashMap::new();
 
         for entity in cohort.iter() {
             for feature_id in entity.features() {
                 direct_associations
-                    .entry(feature_id)
+                    .entry(*feature_id)
                     .or_default()
                     .insert(entity.id());
             }
@@ -61,7 +61,7 @@ where
 
         for (pt_id, patients) in direct_associations {
             let mut ancestors = self.ontology.get_ancestor_ids(pt_id)?;
-            ancestors.push(pt_id.clone());
+            ancestors.push(pt_id.to_owned());
 
             for ancestor_id in ancestors {
                 phenotype_patient_association
@@ -128,11 +128,11 @@ where
             .map(|(entity_1, entity_2): &(&CohortEntity, &CohortEntity)| {
                 let mut similarity = 0.0_f64;
 
-                for key in HashSet::<&String>::from_iter(entity_1.features().iter())
-                    .intersection(&HashSet::<&String>::from_iter(entity_2.features().iter()))
+                for key in HashSet::<&&str>::from_iter(entity_1.features().iter())
+                    .intersection(&HashSet::<&&str>::from_iter(entity_2.features().iter()))
                 {
                     similarity += ic
-                        .get(*key)
+                        .get(**key)
                         // This should never happen. If it does, then there is a bug in the algorithm.
                         .unwrap_or_else(|| panic!("Missing Information Content for input {key}."));
                 }
@@ -217,8 +217,8 @@ mod tests {
         let phrank = setup_mock_phrank();
 
         let cohort = vec![
-            CohortEntity::new("P1", vec!["HP:001".to_string()]),
-            CohortEntity::new("P2", vec!["HP:002".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001"]),
+            CohortEntity::new("P2", vec!["HP:002"]),
         ];
 
         let ic_map = phrank
@@ -234,8 +234,8 @@ mod tests {
     fn test_calculate_ic_same() {
         let phrank = setup_mock_phrank();
         let cohort = vec![
-            CohortEntity::new("P1", vec!["HP:001".to_string()]),
-            CohortEntity::new("P2", vec!["HP:001".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001"]),
+            CohortEntity::new("P2", vec!["HP:001"]),
         ];
 
         let ic_map = phrank
@@ -251,9 +251,9 @@ mod tests {
         let phrank = setup_mock_phrank();
 
         let cohort = vec![
-            CohortEntity::new("P1", vec!["HP:001".to_string()]),
-            CohortEntity::new("P2", vec!["HP:002".to_string()]),
-            CohortEntity::new("P3", vec!["HP:003".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001"]),
+            CohortEntity::new("P2", vec!["HP:002"]),
+            CohortEntity::new("P3", vec!["HP:003"]),
         ];
 
         let (matrix, bimap) = phrank
@@ -281,9 +281,9 @@ mod tests {
         let phrank = setup_mock_phrank();
 
         let cohort = vec![
-            CohortEntity::new("P1", vec!["HP:001".to_string()]),
-            CohortEntity::new("P2", vec!["HP:001".to_string()]),
-            CohortEntity::new("P3", vec!["HP:002".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001"]),
+            CohortEntity::new("P2", vec!["HP:001"]),
+            CohortEntity::new("P3", vec!["HP:002"]),
         ];
 
         let (matrix, bimap) = phrank
@@ -323,9 +323,9 @@ mod tests {
         let phrank = setup_mock_phrank();
 
         let cohort = vec![
-            CohortEntity::new("P1", vec!["HP:001".to_string()]),
-            CohortEntity::new("P2", vec!["HP:002".to_string()]),
-            CohortEntity::new("P3", vec!["HP:002".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001"]),
+            CohortEntity::new("P2", vec!["HP:002"]),
+            CohortEntity::new("P3", vec!["HP:002"]),
         ];
 
         let (matrix, _bimap) = phrank
@@ -343,7 +343,7 @@ mod tests {
     fn test_cohort_too_small() {
         let phrank = setup_mock_phrank();
 
-        let cohort = vec![CohortEntity::new("P1", vec!["HP:001".to_string()])];
+        let cohort = vec![CohortEntity::new("P1", vec!["HP:001"])];
 
         let res = phrank.calculate_similarity(&cohort);
 
@@ -369,9 +369,9 @@ mod tests {
         let phrank = setup_mock_phrank();
 
         let cohort = vec![
-            CohortEntity::new("P1", vec!["HP:001".to_string()]),
-            CohortEntity::new("P1", vec!["HP:001".to_string()]),
-            CohortEntity::new("P1", vec!["HP:001".to_string()]),
+            CohortEntity::new("P1", vec!["HP:001"]),
+            CohortEntity::new("P1", vec!["HP:001"]),
+            CohortEntity::new("P1", vec!["HP:001"]),
         ];
 
         let res = phrank.calculate_similarity(&cohort);
