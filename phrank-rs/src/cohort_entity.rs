@@ -6,10 +6,7 @@ pub struct CohortEntity<'a> {
 
 impl<'a> CohortEntity<'a> {
     pub fn new(id: &'a str, features: Vec<&'a str>) -> Self {
-        Self {
-            id: id.into(),
-            features,
-        }
+        Self { id, features }
     }
     pub fn id(&self) -> &str {
         self.id
