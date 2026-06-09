@@ -121,20 +121,40 @@ where
             .map(|(idx, entity)| (idx, entity.id().to_owned()))
             .collect();
 
-        let product: Vec<_> = cohort.iter().cartesian_product(cohort.iter()).collect();
+        let mut closures: Vec<HashSet<String>> = Vec::with_capacity(cohort.len());
+
+        for entity in cohort.iter() {
+            let mut closure = HashSet::new();
+            for &feature_id in entity.features() {
+                closure.insert(feature_id.to_string());
+
+                let ancestors = self.ontology.get_ancestor_ids(feature_id)?;
+                for ancestor in ancestors {
+                    closure.insert(ancestor);
+                }
+            }
+            closures.push(closure);
+        }
+
+        let entities_with_closures: Vec<(&CohortEntity, &HashSet<String>)> =
+            cohort.iter().zip(closures.iter()).collect();
+
+        let product: Vec<_> = entities_with_closures
+            .iter()
+            .cartesian_product(entities_with_closures.iter())
+            .collect();
 
         let results: Vec<(usize, usize, f64)> = product
             .par_iter()
-            .map(|(entity_1, entity_2): &(&CohortEntity, &CohortEntity)| {
+            .map(|&(&(entity_1, closure_1), &(entity_2, closure_2))| {
                 let mut similarity = 0.0_f64;
 
-                for key in HashSet::<&&str>::from_iter(entity_1.features().iter())
-                    .intersection(&HashSet::<&&str>::from_iter(entity_2.features().iter()))
-                {
-                    similarity += ic
-                        .get(**key)
-                        // This should never happen. If it does, then there is a bug in the algorithm.
-                        .unwrap_or_else(|| panic!("Missing Information Content for input {key}."));
+                for key in closure_1.intersection(closure_2) {
+                    if let Some(&information_content) = ic.get(key) {
+                        similarity += information_content;
+                    } else {
+                        panic!("Missing Information Content for input {key}.");
+                    }
                 }
 
                 let row = *pp_to_matrix_id.get_by_right(entity_1.id()).unwrap();
@@ -206,7 +226,11 @@ mod tests {
         let mut ancestor_map = HashMap::new();
         ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
         ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
-        ancestor_map.insert("HP:003".to_string(), vec!["HP:002".to_string()]);
+
+        ancestor_map.insert(
+            "HP:003".to_string(),
+            vec!["HP:002".to_string(), "HP:000".to_string()],
+        );
 
         let ontology = MockOntology { ancestor_map };
         Phrank { ontology }
@@ -251,7 +275,7 @@ mod tests {
         let phrank = setup_mock_phrank();
 
         let cohort = vec![
-            CohortEntity::new("P1", vec!["HP:001"]),
+            CohortEntity::new("P1", vec!["HP:999"]),
             CohortEntity::new("P2", vec!["HP:002"]),
             CohortEntity::new("P3", vec!["HP:003"]),
         ];
@@ -268,14 +292,10 @@ mod tests {
 
         let csr_matrix: sprs::CsMat<f64> = matrix.to_csr();
 
-        let sim_score = csr_matrix
-            .get(id_a, id_b)
-            .copied()
-            .expect("Failed to get sim score");
+        let sim_score = csr_matrix.get(id_a, id_b).copied().unwrap_or(0.0); // Safely unwrap to 0.0 if the sparse matrix naturally omitted it
 
         assert_eq!(sim_score, 0.0);
     }
-
     #[test]
     fn test_similarity() {
         let phrank = setup_mock_phrank();
