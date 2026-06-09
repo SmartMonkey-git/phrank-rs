@@ -98,7 +98,7 @@ where
         &self,
         cohort: &[CohortEntity],
     ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
-        if cohort.len() <= 2 {
+        if cohort.len() <= 1 {
             return Err(PhrankError::CohortTooSmall(cohort.len()));
         }
 
