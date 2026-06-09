@@ -158,6 +158,25 @@ impl PyPhrank {
 
         Ok((csr_matrix, id_map))
     }
+
+    pub fn pair_simulation(&self, a: PyCohortEntity, b: PyCohortEntity) -> PyResult<f64> {
+        let a: CohortEntity = (&a).into();
+        let b: CohortEntity = (&b).into();
+        let cohort: Vec<CohortEntity> = vec![a, b];
+
+        let (matrix, _) = self
+            .inner
+            .calculate_similarity(&cohort)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        if let Some(sim) = matrix.data().into_iter().next() {
+            Ok(*sim)
+        } else {
+            Err(pyo3::exceptions::PyValueError::new_err(
+                "Could not compute simulation matrix for pair simulation.",
+            ))
+        }
+    }
 }
 
 #[pymodule]
