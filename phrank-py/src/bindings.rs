@@ -5,6 +5,7 @@ use phrank::Phrank;
 use phrank::cohort_entity::CohortEntity;
 use phrank::error::PhrankError;
 use phrank::ontology::ontolius_adapter::CachedOntologyAdapter;
+use phrank::phrank::RuntimeIC;
 use phrank::traits::OntologyTraversal;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -21,7 +22,7 @@ type PyPhrankResult<'py> = PyResult<(Bound<'py, PyAny>, Vec<(usize, String)>)>;
 /// Rust's parallelization and zero-copy memory transfers to SciPy.
 #[pyclass(name = "PyPhrank")]
 pub struct PyPhrank {
-    inner: Phrank<CachedOntologyAdapter<OntologyWrapper>>,
+    inner: Phrank<CachedOntologyAdapter<OntologyWrapper>, RuntimeIC>,
 }
 
 #[pyclass(name = "CohortEntity", from_py_object)]
@@ -102,7 +103,7 @@ impl PyPhrank {
 
         let adapter = CachedOntologyAdapter::new(ontology, cache_size);
 
-        let inner = Phrank::new(adapter);
+        let inner = Phrank::<CachedOntologyAdapter<OntologyWrapper>, RuntimeIC>::new(adapter);
 
         Ok(Self { inner })
     }

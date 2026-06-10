@@ -48,6 +48,7 @@
 //! }
 //!fn main() -> Result<(), PhrankError> {
 //!    use phrank::cohort_entity::CohortEntity;
+//! use phrank::phrank::RuntimeIC;
 //!    let mut ancestor_map = HashMap::new();
 //!    ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
 //!    ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
@@ -55,7 +56,8 @@
 //!    let ontology = MockOntology{ancestor_map};
 //!
 //!    let adapter = CachedOntologyAdapter::new(ontology, 1500);
-//!    let phrank = Phrank::new(adapter);
+//!    // You can switch out RuntimeIC for PrecomputedIC, which allows you to pass a HashMap of IC values.
+//!    let phrank = Phrank::<_, RuntimeIC>::new(adapter);
 //!
 //!    // 1. Define your cohort (Patient ID -> Vec<Phenotype IDs>)
 //!    let mut cohort = vec![CohortEntity::new("P1", vec!["HP:0001250"]),

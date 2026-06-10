@@ -7,26 +7,73 @@ use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use sprs::TriMat;
 use std::collections::{HashMap, HashSet};
+use std::marker::PhantomData;
+
+mod sealed {
+    pub trait Sealed {}
+}
+
+pub trait ICMode: sealed::Sealed {}
+
+pub struct PrecomputedIC;
+pub struct RuntimeIC;
+
+impl sealed::Sealed for PrecomputedIC {}
+impl sealed::Sealed for RuntimeIC {}
+
+impl ICMode for PrecomputedIC {}
+impl ICMode for RuntimeIC {}
 
 /// A structural comparison tool for calculating phenotype-driven similarity
 /// across a cohort of patients.
 ///
 /// `Phrank` uses the Information Content (IC) of ontological features
 /// to weight the rarity and significance of shared phenotypes.
-pub struct Phrank<O> {
+pub struct Phrank<O, ModeIC: ICMode> {
     ontology: O,
+    ic_strategy: PhantomData<ModeIC>,
+    ic: HashMap<String, f64>,
 }
 
-impl<O> Phrank<O>
+impl<O> Phrank<O, RuntimeIC>
 where
     O: OntologyTraversal,
 {
     pub fn new(ontology: O) -> Self {
-        Self { ontology }
+        Self {
+            ontology,
+            ic_strategy: PhantomData,
+            ic: HashMap::new(),
+        }
     }
 }
 
-impl<O> Phrank<O>
+impl<O> Phrank<O, PrecomputedIC>
+where
+    O: OntologyTraversal,
+{
+    pub fn new(ontology: O, ic: HashMap<String, f64>) -> Self {
+        Self {
+            ontology,
+            ic_strategy: PhantomData,
+            ic,
+        }
+    }
+}
+
+impl<O> Phrank<O, PrecomputedIC>
+where
+    O: OntologyTraversal,
+{
+    pub fn calculate_similarity(
+        &self,
+        cohort: &[CohortEntity],
+    ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
+        self.inner_calculate_similarity(cohort, &self.ic)
+    }
+}
+
+impl<O> Phrank<O, RuntimeIC>
 where
     O: OntologyTraversal,
 {
@@ -80,6 +127,20 @@ where
             .collect())
     }
 
+    pub fn calculate_similarity(
+        &self,
+        cohort: &[CohortEntity],
+    ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
+        let ic = self.calculate_ic(cohort)?;
+        self.inner_calculate_similarity(cohort, &ic)
+    }
+}
+
+impl<O, IC> Phrank<O, IC>
+where
+    O: OntologyTraversal,
+    IC: ICMode,
+{
     /// Computes the pairwise similarity matrix for an entire cohort.
     ///
     /// This function performs a parallelized Cartesian product over the cohort.
@@ -94,9 +155,10 @@ where
     /// 1. A `TriMat<f32>`: A sparse coordinate matrix containing the similarity scores.
     /// 2. A `BiMap<usize, String>`: A bidirectional map linking the numeric indices of
     ///    the sparse matrix to the original string-based Patient IDs.
-    pub fn calculate_similarity(
+    fn inner_calculate_similarity(
         &self,
         cohort: &[CohortEntity],
+        ic: &HashMap<String, f64>,
     ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
         if cohort.len() <= 2 {
             return Err(PhrankError::CohortTooSmall(cohort.len()));
@@ -111,8 +173,6 @@ where
         {
             return Err(PhrankError::DuplicateIDs);
         }
-
-        let ic = self.calculate_ic(cohort)?;
 
         let mut matrix = TriMat::<f64>::new((cohort.len(), cohort.len()));
         let pp_to_matrix_id: BiBTreeMap<usize, String> = cohort
@@ -222,7 +282,7 @@ mod tests {
         }
     }
 
-    fn setup_mock_phrank() -> Phrank<MockOntology> {
+    fn setup_mock_phrank() -> Phrank<MockOntology, RuntimeIC> {
         let mut ancestor_map = HashMap::new();
         ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
         ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
@@ -233,7 +293,7 @@ mod tests {
         );
 
         let ontology = MockOntology { ancestor_map };
-        Phrank { ontology }
+        Phrank::<MockOntology, RuntimeIC>::new(ontology)
     }
 
     #[test]
