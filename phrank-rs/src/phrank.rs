@@ -112,7 +112,7 @@ where
     /// # Returns
     /// A `Result` containing a `HashMap` mapping phenotype IDs to their respective
     /// IC score as an `f32`, or a `PhrankError` if ontology traversal fails.
-    fn calculate_ic(
+    pub fn calculate_ic(
         cohort: &[CohortEntity],
         ontology: &O,
     ) -> Result<HashMap<String, f64>, PhrankError> {
