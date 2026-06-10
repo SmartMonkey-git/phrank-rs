@@ -306,8 +306,6 @@ mod tests {
 
     #[test]
     fn test_calculate_ic() {
-        let phrank = setup_mock_phrank();
-
         let cohort = vec![
             CohortEntity::new("P1", vec!["HP:001"]),
             CohortEntity::new("P2", vec!["HP:002"]),
@@ -323,7 +321,6 @@ mod tests {
 
     #[test]
     fn test_calculate_ic_same() {
-        let phrank = setup_mock_phrank();
         let cohort = vec![
             CohortEntity::new("P1", vec!["HP:001"]),
             CohortEntity::new("P2", vec!["HP:001"]),
