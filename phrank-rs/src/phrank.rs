@@ -46,36 +46,58 @@ where
             ic: HashMap::new(),
         }
     }
+
+    pub fn into_precomputed(self, ic: HashMap<String, f64>) -> Phrank<O, PrecomputedIC> {
+        Phrank::with_precomputed(self.ontology, ic)
+    }
+
+    pub fn calculate_similarity(
+        &self,
+        cohort: &[CohortEntity],
+    ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
+        if cohort.len() <= 2 {
+            return Err(PhrankError::CohortTooSmall(2, cohort.len()));
+        }
+        let ic = Phrank::<O, RuntimeIC>::calculate_ic(cohort, &self.ontology)?;
+        self.inner_calculate_similarity(cohort, &ic)
+    }
 }
 
 impl<O> Phrank<O, PrecomputedIC>
 where
     O: OntologyTraversal,
 {
-    pub fn new(ontology: O, ic: HashMap<String, f64>) -> Self {
+    pub fn with_precomputed(ontology: O, ic: HashMap<String, f64>) -> Self {
         Self {
             ontology,
             ic_strategy: PhantomData,
             ic,
         }
     }
-}
 
-impl<O> Phrank<O, PrecomputedIC>
-where
-    O: OntologyTraversal,
-{
+    pub fn ic(&self) -> &HashMap<String, f64> {
+        &self.ic
+    }
+
+    pub fn into_runtime(self) -> Phrank<O, RuntimeIC> {
+        Phrank::new(self.ontology)
+    }
+
     pub fn calculate_similarity(
         &self,
         cohort: &[CohortEntity],
     ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
+        if cohort.len() <= 1 {
+            return Err(PhrankError::CohortTooSmall(1, cohort.len()));
+        }
         self.inner_calculate_similarity(cohort, &self.ic)
     }
 }
 
-impl<O> Phrank<O, RuntimeIC>
+impl<O, IC> Phrank<O, IC>
 where
     O: OntologyTraversal,
+    IC: ICMode,
 {
     /// Calculates the Information Content (IC) for all terms present in the cohort.
     ///
@@ -90,7 +112,10 @@ where
     /// # Returns
     /// A `Result` containing a `HashMap` mapping phenotype IDs to their respective
     /// IC score as an `f32`, or a `PhrankError` if ontology traversal fails.
-    fn calculate_ic(&self, cohort: &[CohortEntity]) -> Result<HashMap<String, f64>, PhrankError> {
+    fn calculate_ic(
+        cohort: &[CohortEntity],
+        ontology: &O,
+    ) -> Result<HashMap<String, f64>, PhrankError> {
         let cohort_size = cohort.len() as f64;
 
         let mut direct_associations: HashMap<&str, HashSet<&str>> = HashMap::new();
@@ -107,7 +132,7 @@ where
         let mut phenotype_patient_association: HashMap<String, HashSet<&str>> = HashMap::new();
 
         for (pt_id, patients) in direct_associations {
-            let mut ancestors = self.ontology.get_ancestor_ids(pt_id)?;
+            let mut ancestors = ontology.get_ancestor_ids(pt_id)?;
             ancestors.push(pt_id.to_owned());
 
             for ancestor_id in ancestors {
@@ -127,20 +152,6 @@ where
             .collect())
     }
 
-    pub fn calculate_similarity(
-        &self,
-        cohort: &[CohortEntity],
-    ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
-        let ic = self.calculate_ic(cohort)?;
-        self.inner_calculate_similarity(cohort, &ic)
-    }
-}
-
-impl<O, IC> Phrank<O, IC>
-where
-    O: OntologyTraversal,
-    IC: ICMode,
-{
     /// Computes the pairwise similarity matrix for an entire cohort.
     ///
     /// This function performs a parallelized Cartesian product over the cohort.
@@ -160,10 +171,6 @@ where
         cohort: &[CohortEntity],
         ic: &HashMap<String, f64>,
     ) -> Result<(TriMat<f64>, BiBTreeMap<usize, String>), PhrankError> {
-        if cohort.len() <= 2 {
-            return Err(PhrankError::CohortTooSmall(cohort.len()));
-        }
-
         if cohort
             .iter()
             .map(|entity| entity.id())
@@ -282,18 +289,19 @@ mod tests {
         }
     }
 
-    fn setup_mock_phrank() -> Phrank<MockOntology, RuntimeIC> {
+    fn mock_ontology() -> MockOntology {
         let mut ancestor_map = HashMap::new();
         ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
         ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
-
         ancestor_map.insert(
             "HP:003".to_string(),
             vec!["HP:002".to_string(), "HP:000".to_string()],
         );
 
-        let ontology = MockOntology { ancestor_map };
-        Phrank::<MockOntology, RuntimeIC>::new(ontology)
+        MockOntology { ancestor_map }
+    }
+    fn setup_mock_phrank() -> Phrank<MockOntology, RuntimeIC> {
+        Phrank::<MockOntology, RuntimeIC>::new(mock_ontology())
     }
 
     #[test]
@@ -305,8 +313,7 @@ mod tests {
             CohortEntity::new("P2", vec!["HP:002"]),
         ];
 
-        let ic_map = phrank
-            .calculate_ic(&cohort)
+        let ic_map = Phrank::<MockOntology, RuntimeIC>::calculate_ic(&cohort, &mock_ontology())
             .expect("Failed to calculate IC");
 
         assert_eq!(ic_map.get("HP:000").copied().unwrap_or(f64::NAN), 0.0);
@@ -322,8 +329,7 @@ mod tests {
             CohortEntity::new("P2", vec!["HP:001"]),
         ];
 
-        let ic_map = phrank
-            .calculate_ic(&cohort)
+        let ic_map = Phrank::<MockOntology, RuntimeIC>::calculate_ic(&cohort, &mock_ontology())
             .expect("Failed to calculate IC");
 
         assert_eq!(ic_map.get("HP:000").copied().unwrap_or(f64::NAN), 0.0);
@@ -428,7 +434,7 @@ mod tests {
         let res = phrank.calculate_similarity(&cohort);
 
         match res.err().unwrap() {
-            PhrankError::CohortTooSmall(cohort_len) => {
+            PhrankError::CohortTooSmall(2, cohort_len) => {
                 assert_eq!(cohort_len, 1);
             }
             _ => panic!("Wrong error"),
@@ -437,7 +443,7 @@ mod tests {
         let res = phrank.calculate_similarity(vec![].as_slice());
 
         match res.err().unwrap() {
-            PhrankError::CohortTooSmall(cohort_len) => {
+            PhrankError::CohortTooSmall(2, cohort_len) => {
                 assert_eq!(cohort_len, 0);
             }
             _ => panic!("Wrong error"),
@@ -464,7 +470,7 @@ mod tests {
         let res = phrank.calculate_similarity(vec![].as_slice());
 
         match res.err().unwrap() {
-            PhrankError::CohortTooSmall(cohort_len) => {
+            PhrankError::CohortTooSmall(2, cohort_len) => {
                 assert_eq!(cohort_len, 0);
             }
             _ => panic!("Wrong error"),

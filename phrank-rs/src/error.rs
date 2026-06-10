@@ -4,8 +4,8 @@ use thiserror::Error;
 pub enum PhrankError {
     #[error("TermID not found: {0}.")]
     TermIdNotFound(String),
-    #[error("Cohort needs to be > 2. Got {0}.")]
-    CohortTooSmall(usize),
+    #[error("Cohort needs to be > {0}. Got {1}.")]
+    CohortTooSmall(usize, usize),
     #[error("Found duplicate ID's in cohort.")]
     DuplicateIDs,
 }
