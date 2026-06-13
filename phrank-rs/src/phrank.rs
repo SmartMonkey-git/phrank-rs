@@ -29,6 +29,7 @@ impl ICMode for RuntimeIC {}
 ///
 /// `Phrank` uses the Information Content (IC) of ontological features
 /// to weight the rarity and significance of shared phenotypes.
+#[derive(Debug, Clone)]
 pub struct Phrank<O, ModeIC: ICMode> {
     ontology: O,
     ic_strategy: PhantomData<ModeIC>,
