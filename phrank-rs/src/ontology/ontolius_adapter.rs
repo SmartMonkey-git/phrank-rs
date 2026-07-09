@@ -4,6 +4,7 @@ use moka::sync::Cache;
 use ontolius::TermId;
 use ontolius::ontology::HierarchyWalks;
 use ontolius::ontology::csr::FullCsrOntology;
+use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -15,7 +16,7 @@ use std::sync::Arc;
 /// across large patient cohorts.
 pub struct CachedOntologyAdapter<Ontology> {
     ontology: Ontology,
-    cache: Cache<String, Vec<String>>,
+    cache: Cache<String, HashSet<String>>,
 }
 
 impl<Ontology> CachedOntologyAdapter<Ontology> {
@@ -41,7 +42,7 @@ impl<Ontology> OntologyTraversal for CachedOntologyAdapter<Ontology>
 where
     Ontology: OntologyTraversal,
 {
-    fn get_ancestor_ids(&self, child: &str) -> Result<Vec<String>, PhrankError> {
+    fn get_ancestor_ids(&self, child: &str) -> Result<HashSet<String>, PhrankError> {
         if let Some(ancestors) = self.cache.get(child) {
             return Ok(ancestors);
         }
@@ -65,12 +66,12 @@ impl OntologyTraversal for FullCsrOntology {
     /// # Returns
     /// A `Result` containing a `Vec` of ancestor IDs as `String`s, or a `PhrankError`
     /// if the `child_id` cannot be parsed into a valid `TermId`.
-    fn get_ancestor_ids(&self, child_id: &str) -> Result<Vec<String>, PhrankError> {
+    fn get_ancestor_ids(&self, child_id: &str) -> Result<HashSet<String>, PhrankError> {
         let term_id = TermId::from_str(child_id);
 
         match term_id {
             Ok(term) => {
-                let ancestors: Vec<String> = self
+                let ancestors: HashSet<String> = self
                     .iter_ancestor_ids(&term)
                     .map(|t_id| t_id.to_string())
                     .collect();
@@ -83,7 +84,7 @@ impl OntologyTraversal for FullCsrOntology {
 }
 
 impl<T: ?Sized + OntologyTraversal> OntologyTraversal for Arc<T> {
-    fn get_ancestor_ids(&self, child: &str) -> Result<Vec<String>, PhrankError> {
+    fn get_ancestor_ids(&self, child: &str) -> Result<HashSet<String>, PhrankError> {
         (**self).get_ancestor_ids(child)
     }
 }
@@ -96,7 +97,7 @@ pub mod obo {
     use std::collections::{HashMap, HashSet, VecDeque};
 
     impl OntologyTraversal for OboDoc {
-        fn get_ancestor_ids(&self, child_id: &str) -> Result<Vec<String>, PhrankError> {
+        fn get_ancestor_ids(&self, child_id: &str) -> Result<HashSet<String>, PhrankError> {
             let mut parent_map: HashMap<String, Vec<String>> = HashMap::new();
             let mut term_exists = false;
 
@@ -145,8 +146,7 @@ pub mod obo {
                 }
             }
 
-            let ancestor_vec: Vec<String> = ancestors.into_iter().collect();
-            Ok(ancestor_vec)
+            Ok(ancestors)
         }
     }
 
@@ -179,8 +179,7 @@ pub mod obo {
             let json_hpo = registry.register(json_hpo_key).unwrap();
             let loader = OntologyLoaderBuilder::new().obographs_parser().build();
             let ontolius: FullCsrOntology = loader.load_from_read(json_hpo).unwrap();
-            let mut json_ancestors = ontolius.get_ancestor_ids("HP:0006803").unwrap();
-            json_ancestors.sort();
+            let json_ancestors = ontolius.get_ancestor_ids("HP:0006803").unwrap();
 
             let obo_hpo_key =
                 RegistryKey::new(SupportedOntology::HP, Version::Latest, FileType::Obo);
@@ -188,8 +187,7 @@ pub mod obo {
             let mut reader = BufReader::new(ontology_path);
             let obo_doc = fastobo::from_reader(&mut reader).unwrap();
 
-            let mut obo_ancestors = obo_doc.get_ancestor_ids("HP:0006803").unwrap();
-            obo_ancestors.sort();
+            let obo_ancestors = obo_doc.get_ancestor_ids("HP:0006803").unwrap();
 
             assert_eq!(json_ancestors, obo_ancestors);
         }

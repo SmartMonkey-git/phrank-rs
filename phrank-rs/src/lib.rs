@@ -34,24 +34,26 @@
 //! use phrank::Phrank;
 //! use phrank::error::PhrankError;
 //! use phrank::traits::OntologyTraversal;
+//! use std::collections::HashSet;
 //! // Assuming you have initialized your chosen ontology:
 //! use phrank::ontology::ontolius_adapter::CachedOntologyAdapter;
 //!
 //! struct MockOntology {
-//!     ancestor_map: HashMap<String, Vec<String>>,
+//!     ancestor_map: HashMap<String, HashSet<String>>,
 //! }
 //!
 //! impl OntologyTraversal for MockOntology {
-//!     fn get_ancestor_ids(&self, id: &str) -> Result<Vec<String>, PhrankError> {
-//!         Ok(self.ancestor_map.get(id).cloned().unwrap_or_default())
+//!     fn get_ancestor_ids(&self, id: &str) -> Result<HashSet<String>, PhrankError> {
+//!         use std::collections::HashSet;
+//! Ok(self.ancestor_map.get(id).cloned().unwrap_or_default())
 //!     }
 //! }
 //!fn main() -> Result<(), PhrankError> {
 //!    use phrank::cohort_entity::CohortEntity;
 //! use phrank::phrank::RuntimeIC;
 //!    let mut ancestor_map = HashMap::new();
-//!    ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
-//!    ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
+//!    ancestor_map.insert("HP:001".to_string(), HashSet::from_iter(vec!["HP:000".to_string()]));
+//!    ancestor_map.insert("HP:002".to_string(), HashSet::from_iter(vec!["HP:000".to_string()]));
 //!
 //!    let ontology = MockOntology{ancestor_map};
 //!

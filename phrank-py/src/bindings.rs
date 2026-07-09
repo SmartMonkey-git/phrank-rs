@@ -9,6 +9,7 @@ use phrank::phrank::RuntimeIC;
 use phrank::traits::OntologyTraversal;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -60,7 +61,7 @@ pub enum PyOntology {
 struct OntologyWrapper(Box<dyn OntologyTraversal + Send + Sync>);
 
 impl OntologyTraversal for OntologyWrapper {
-    fn get_ancestor_ids(&self, child: &str) -> Result<Vec<String>, PhrankError> {
+    fn get_ancestor_ids(&self, child: &str) -> Result<HashSet<String>, PhrankError> {
         self.0.get_ancestor_ids(child)
     }
 }
