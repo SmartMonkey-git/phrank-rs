@@ -14,7 +14,7 @@ mod sealed {
 }
 
 pub trait ICMode: sealed::Sealed {}
-
+#[derive(Debug, Clone)]
 pub struct PrecomputedIC;
 #[derive(Debug, Clone)]
 pub struct RuntimeIC;
