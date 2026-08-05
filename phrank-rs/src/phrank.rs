@@ -16,6 +16,7 @@ mod sealed {
 pub trait ICMode: sealed::Sealed {}
 
 pub struct PrecomputedIC;
+#[derive(Debug, Clone)]
 pub struct RuntimeIC;
 
 impl sealed::Sealed for PrecomputedIC {}
@@ -280,6 +281,7 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Clone)]
     struct MockOntology {
         ancestor_map: HashMap<String, HashSet<String>>,
     }

@@ -18,10 +18,8 @@ moka = { version = "0.12.15", features = ["sync"] }
 thiserror = "2.0.18"
 ontolius = "0.7.2"
 fastobo = { version = "0.15.5", optional = true }
-pyo3 = { version = "0.28.3", features = ["extension-module"], optional = true }
 
 [features]
-python = ["pyo3"]
 obo = ["fastobo"]
 
 [dev-dependencies]

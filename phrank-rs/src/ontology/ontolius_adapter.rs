@@ -14,6 +14,7 @@ use std::sync::Arc;
 /// This struct includes an embedded, thread-safe cache to store the results
 /// of expensive ancestor lookups, significantly speeding up repetitive queries
 /// across large patient cohorts.
+#[derive(Debug, Clone)]
 pub struct CachedOntologyAdapter<Ontology> {
     ontology: Ontology,
     cache: Cache<String, HashSet<String>>,
