@@ -16,6 +16,7 @@ mod sealed {
 pub trait ICMode: sealed::Sealed {}
 
 pub struct PrecomputedIC;
+#[derive(Debug, Clone)]
 pub struct RuntimeIC;
 
 impl sealed::Sealed for PrecomputedIC {}
@@ -134,7 +135,7 @@ where
 
         for (pt_id, patients) in direct_associations {
             let mut ancestors = ontology.get_ancestor_ids(pt_id)?;
-            ancestors.push(pt_id.to_owned());
+            ancestors.insert(pt_id.to_owned());
 
             for ancestor_id in ancestors {
                 phenotype_patient_association
@@ -280,23 +281,30 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Clone)]
     struct MockOntology {
-        ancestor_map: HashMap<String, Vec<String>>,
+        ancestor_map: HashMap<String, HashSet<String>>,
     }
 
     impl OntologyTraversal for MockOntology {
-        fn get_ancestor_ids(&self, id: &str) -> Result<Vec<String>, PhrankError> {
+        fn get_ancestor_ids(&self, id: &str) -> Result<HashSet<String>, PhrankError> {
             Ok(self.ancestor_map.get(id).cloned().unwrap_or_default())
         }
     }
 
     fn mock_ontology() -> MockOntology {
         let mut ancestor_map = HashMap::new();
-        ancestor_map.insert("HP:001".to_string(), vec!["HP:000".to_string()]);
-        ancestor_map.insert("HP:002".to_string(), vec!["HP:000".to_string()]);
+        ancestor_map.insert(
+            "HP:001".to_string(),
+            HashSet::from_iter(vec!["HP:000".to_string()]),
+        );
+        ancestor_map.insert(
+            "HP:002".to_string(),
+            HashSet::from_iter(vec!["HP:000".to_string()]),
+        );
         ancestor_map.insert(
             "HP:003".to_string(),
-            vec!["HP:002".to_string(), "HP:000".to_string()],
+            HashSet::from_iter(vec!["HP:002".to_string(), "HP:000".to_string()]),
         );
 
         MockOntology { ancestor_map }
